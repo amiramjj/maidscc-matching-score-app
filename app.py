@@ -226,46 +226,27 @@ if uploaded_file:
     df["match_score"] = df.apply(calculate_row_score, axis=1)
     df["match_score_pct"] = df["match_score"] * 100
 
-    # Show all scores
-    st.subheader("All Match Scores")
+    # Section 1: Existing Matches
+    st.subheader("All Match Scores (tagged pairs)")
     st.dataframe(df[["client_name", "maid_id", "match_score_pct"]])
 
-    # Filters for explanation
-    st.subheader("Detailed Explanation")
-    client_choice = st.selectbox("Select Client", df["client_name"].unique())
-    maid_choice = st.selectbox("Select Maid", df[df["client_name"] == client_choice]["maid_id"].unique())
-
-    selected_row = df[(df["client_name"] == client_choice) & (df["maid_id"] == maid_choice)].iloc[0]
-    explanations = explain_row_score(selected_row)
-
-    st.write(f"**Match Score:** {selected_row['match_score_pct']:.1f}%")
-
-    with st.expander("Positive Matches"):
-        for r in explanations["positive"]:
-            st.write(f"- {r}")
-
-    with st.expander("Negative Mismatches"):
-        for r in explanations["negative"]:
-            st.write(f"- {r}")
-
-    with st.expander("Neutral Notes"):
-        for r in explanations["neutral"]:
-            st.write(f"- {r}")
-
     # -------------------------------
-    # NEW SECTION: Best Matches (All Possible Pairs)
+    # NEW SECTION: Best Maid per Client
     # -------------------------------
-    st.subheader("Best Matches Across All Clients and Maids")
+    st.subheader("Best Maid per Client (Global Search Across All Maids)")
 
     clients = df["client_name"].unique()
     maids = df["maid_id"].unique()
-    all_pairs = []
 
+    all_pairs = []
     for client in clients:
-        client_row = df[df["client_name"] == client].iloc[0]
+        client_row = df[df["client_name"] == client].iloc[0]  # client features
         for maid in maids:
-            maid_row = df[df["maid_id"] == maid].iloc[0]
+            maid_row = df[df["maid_id"] == maid].iloc[0]  # maid features
+
+            # merge features into one synthetic row
             combined = pd.concat([client_row, maid_row], axis=0)
+
             score = calculate_row_score(combined)
             all_pairs.append({
                 "client_name": client,
@@ -278,37 +259,4 @@ if uploaded_file:
 
     # Best maid per client
     best_client_df = pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
-
-    # Best client per maid
-    best_maid_df = pairwise_df.loc[pairwise_df.groupby("maid_id")["match_score"].idxmax()]
-
-    st.write("### Best Maid per Client")
     st.dataframe(best_client_df[["client_name", "maid_id", "match_score_pct"]])
-
-    st.write("### Best Client per Maid")
-    st.dataframe(best_maid_df[["maid_id", "client_name", "match_score_pct"]])
-
-    # Select from best matches for detailed explanation
-    st.subheader("Explain a Best Match")
-    choice_type = st.radio("Select Match Type", ["Client → Maid", "Maid → Client"])
-
-    if choice_type == "Client → Maid":
-        client_sel = st.selectbox("Choose Client", best_client_df["client_name"].unique())
-        maid_sel = best_client_df[best_client_df["client_name"] == client_sel]["maid_id"].iloc[0]
-    else:
-        maid_sel = st.selectbox("Choose Maid", best_maid_df["maid_id"].unique())
-        client_sel = best_maid_df[best_maid_df["maid_id"] == maid_sel]["client_name"].iloc[0]
-
-    match_row = df[(df["client_name"] == client_sel) & (df["maid_id"] == maid_sel)].iloc[0]
-    st.write(f"**Best Match Score:** {pairwise_df[(pairwise_df['client_name']==client_sel) & (pairwise_df['maid_id']==maid_sel)]['match_score_pct'].iloc[0]:.1f}%")
-
-    explanations = explain_row_score(match_row)
-    with st.expander("Positive Matches"):
-        for r in explanations["positive"]:
-            st.write(f"- {r}")
-    with st.expander("Negative Mismatches"):
-        for r in explanations["negative"]:
-            st.write(f"- {r}")
-    with st.expander("Neutral Notes"):
-        for r in explanations["neutral"]:
-            st.write(f"- {r}")
