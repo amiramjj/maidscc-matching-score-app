@@ -177,11 +177,15 @@ if uploaded_file:
     df["match_score"] = df.apply(calculate_row_score, axis=1)
     df["match_score_pct"] = df["match_score"] * 100
 
-    st.subheader("Browse Matches")
+    # Show summary table
+    st.subheader("All Match Scores")
+    st.dataframe(df[["client_name", "maid_id", "match_score", "match_score_pct"]])
+
+    # Drill-down explanation
+    st.subheader("Detailed Explanation")
     client_choice = st.selectbox("Select Client", df["client_name"].unique())
     maid_choice = st.selectbox("Select Maid", df["maid_id"].unique())
 
-    # Filter selected row
     selected = df[(df["client_name"] == client_choice) & (df["maid_id"] == maid_choice)]
     if not selected.empty:
         row = selected.iloc[0]
