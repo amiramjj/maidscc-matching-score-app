@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # -------------------------------
-# Matching Score Function (same as before)
+# Matching Score Function
 # -------------------------------
 def calculate_row_score(row):
     score = 0.0
@@ -119,32 +119,92 @@ def calculate_row_score(row):
 
 
 # -------------------------------
-# Explanation Function (expandable later for all features)
+# Expanded Explanation Function
 # -------------------------------
 def explain_row_score(row):
-    explanations = {"positive": [], "negative": []}
+    explanations = {"positive": [], "negative": [], "neutral": []}
 
     # Household
-    if row["clientmts_household_type"] == "baby" and row["maidmts_household_type"] != "refuses_baby":
-        explanations["positive"].append("Client requires baby care, maid accepts baby households.")
-    elif row["clientmts_household_type"] == "baby":
-        explanations["negative"].append("Client requires baby care, maid refuses baby households.")
-
-    if row["clientmts_household_type"] == "many_kids" and row["maidmts_household_type"] != "refuses_many_kids":
-        explanations["positive"].append("Client has many kids, maid accepts large households.")
-    elif row["clientmts_household_type"] == "many_kids":
-        explanations["negative"].append("Client has many kids, maid refuses large households.")
+    if row["clientmts_household_type"] != "unspecified":
+        if row["clientmts_household_type"] == "baby" and row["maidmts_household_type"] != "refuses_baby":
+            explanations["positive"].append("Client wants baby care, maid accepts it.")
+        elif row["clientmts_household_type"] == "baby":
+            explanations["negative"].append("Client wants baby care, maid refuses it.")
+        elif row["clientmts_household_type"] == "many_kids" and row["maidmts_household_type"] != "refuses_many_kids":
+            explanations["positive"].append("Client has many kids, maid accepts it.")
+        elif row["clientmts_household_type"] == "many_kids":
+            explanations["negative"].append("Client has many kids, maid refuses it.")
+    else:
+        explanations["neutral"].append("Client did not specify household type, maid profile present.")
 
     # Pets
-    if row["clientmts_pet_type"] == "cat" and row["maidmts_pet_type"] != "refuses_cat":
-        explanations["positive"].append("Client has cats, maid accepts cats.")
-    elif row["clientmts_pet_type"] == "cat":
-        explanations["negative"].append("Client has cats, maid refuses cats.")
+    if row["clientmts_pet_type"] != "no_pets":
+        if row["clientmts_pet_type"] == "cat" and row["maidmts_pet_type"] != "refuses_cat":
+            explanations["positive"].append("Client has cats, maid accepts cats.")
+        elif row["clientmts_pet_type"] == "cat":
+            explanations["negative"].append("Client has cats, maid refuses cats.")
+        elif row["clientmts_pet_type"] == "dog" and row["maidmts_pet_type"] != "refuses_dog":
+            explanations["positive"].append("Client has dogs, maid accepts dogs.")
+        elif row["clientmts_pet_type"] == "dog":
+            explanations["negative"].append("Client has dogs, maid refuses dogs.")
+    else:
+        explanations["neutral"].append("Client did not specify pets, maid profile present.")
 
-    if row["clientmts_pet_type"] == "dog" and row["maidmts_pet_type"] != "refuses_dog":
-        explanations["positive"].append("Client has dogs, maid accepts dogs.")
-    elif row["clientmts_pet_type"] == "dog":
-        explanations["negative"].append("Client has dogs, maid refuses dogs.")
+    # Day-off
+    if row["clientmts_dayoff_policy"] != "unspecified":
+        if row["maidmts_dayoff_policy"] != "refuses_fixed_sunday":
+            explanations["positive"].append("Client specified day-off, maid accepts flexible policy.")
+        else:
+            explanations["negative"].append("Client specified day-off, maid refuses fixed Sunday.")
+    else:
+        explanations["neutral"].append("Client did not specify day-off policy.")
+
+    # Living arrangement
+    if row["clientmts_living_arrangement"] != "unspecified":
+        if ("private_room" in row["clientmts_living_arrangement"] and 
+            "requires_no_private_room" not in row["maidmts_living_arrangement"]):
+            explanations["positive"].append("Client requires private room, maid accepts it.")
+        else:
+            explanations["negative"].append("Client requires private room, maid refuses it.")
+    else:
+        explanations["neutral"].append("Client did not specify living arrangement.")
+
+    # Nationality
+    if row["clientmts_nationality_preference"] != "any":
+        if row["clientmts_nationality_preference"] in str(row["maid_nationality"]):
+            explanations["positive"].append(f"Client prefers {row['clientmts_nationality_preference']}, maid matches it.")
+        else:
+            explanations["negative"].append(f"Client prefers {row['clientmts_nationality_preference']}, maid does not match.")
+    else:
+        explanations["neutral"].append("Client did not specify nationality preference.")
+
+    # Cuisine
+    if row["clientmts_cuisine_preference"] != "unspecified":
+        if set(row["clientmts_cuisine_preference"].split("+")) & set(str(row["cooking_group"]).split("+")):
+            explanations["positive"].append("Client cuisine preference matches maid cooking skills.")
+        else:
+            explanations["negative"].append("Client cuisine preference does not match maid cooking skills.")
+    else:
+        explanations["neutral"].append("Client did not specify cuisine preference.")
+
+    # Special cases
+    if row["clientmts_special_cases"] != "unspecified":
+        if (
+            (row["clientmts_special_cases"] == "elderly" and row["maidpref_caregiving_profile"] in ["elderly_experienced", "elderly_and_special"]) or
+            (row["clientmts_special_cases"] == "special_needs" and row["maidpref_caregiving_profile"] in ["special_needs", "elderly_and_special"]) or
+            (row["clientmts_special_cases"] == "elderly_and_special" and row["maidpref_caregiving_profile"] == "elderly_and_special")
+        ):
+            explanations["positive"].append("Client requires caregiving, maid has relevant experience.")
+        else:
+            explanations["negative"].append("Client requires caregiving, maid lacks the required experience.")
+    else:
+        explanations["neutral"].append("Client did not specify caregiving needs.")
+
+    # Smoking
+    if row["maidpref_smoking"] == "non_smoker":
+        explanations["positive"].append("Maid is a non-smoker.")
+    else:
+        explanations["neutral"].append("Maid profile indicates smoking tolerance.")
 
     return explanations
 
@@ -181,15 +241,13 @@ if uploaded_file:
     st.write(f"**Match Score:** {selected_row['match_score_pct']:.1f}%")
 
     with st.expander("Positive Matches"):
-        if explanations["positive"]:
-            for r in explanations["positive"]:
-                st.write(f"- {r}")
-        else:
-            st.write("No strong positive matches found.")
+        for r in explanations["positive"]:
+            st.write(f"- {r}")
 
     with st.expander("Negative Mismatches"):
-        if explanations["negative"]:
-            for r in explanations["negative"]:
-                st.write(f"- {r}")
-        else:
-            st.write("No critical mismatches found.")
+        for r in explanations["negative"]:
+            st.write(f"- {r}")
+
+    with st.expander("Neutral Notes"):
+        for r in explanations["neutral"]:
+            st.write(f"- {r}")
