@@ -133,38 +133,31 @@ def calculate_row_score(row):
 # Explanation Function
 # -------------------------------
 def explain_row_score(row):
-    reasons = []
-    c_house, m_house = row["clientmts_household_type"], row["maidmts_household_type"]
-    if c_house == "baby" and m_house != "refuses_baby":
-        reasons.append("Household type requirement (baby) is satisfied.")
-    elif c_house == "many_kids" and m_house != "refuses_many_kids":
-        reasons.append("Household type requirement (many kids) is satisfied.")
-    elif c_house == "baby_and_kids" and m_house != "refuses_baby_and_kids":
-        reasons.append("Household type requirement (baby and kids) is satisfied.")
-    elif c_house != "unspecified":
-        reasons.append("Household type requirement not satisfied.")
+    explanations = {"positive": [], "negative": []}
 
-    c_pets, m_pets = row["clientmts_pet_type"], row["maidmts_pet_type"]
-    if c_pets == "cat" and m_pets != "refuses_cat":
-        reasons.append("Maid is fine with cats.")
-    elif c_pets == "dog" and m_pets != "refuses_dog":
-        reasons.append("Maid is fine with dogs.")
-    elif c_pets == "both" and m_pets != "refuses_both_pets":
-        reasons.append("Maid is fine with both cats and dogs.")
-    elif c_pets != "no_pets":
-        reasons.append("Maid refuses the pet type required.")
+    # Household
+    if row["clientmts_household_type"] == "baby" and row["maidmts_household_type"] != "refuses_baby":
+        explanations["positive"].append("Client wants baby care, maid accepts baby households.")
+    elif row["clientmts_household_type"] == "baby":
+        explanations["negative"].append("Client wants baby care, maid refuses baby households.")
 
-    if row["clientmts_dayoff_policy"] not in ["", "unspecified"] and row["maidmts_dayoff_policy"] != "refuses_fixed_sunday":
-        reasons.append("Day-off policy is acceptable.")
-    elif row["clientmts_dayoff_policy"] not in ["", "unspecified"]:
-        reasons.append("Day-off policy is not acceptable.")
+    if row["clientmts_household_type"] == "many_kids" and row["maidmts_household_type"] != "refuses_many_kids":
+        explanations["positive"].append("Client has many kids, maid accepts large households.")
+    elif row["clientmts_household_type"] == "many_kids":
+        explanations["negative"].append("Client has many kids, maid refuses large households.")
 
-    if "private_room" in row["clientmts_living_arrangement"] and "requires_no_private_room" not in row["maidmts_living_arrangement"]:
-        reasons.append("Maid accepts private room arrangement.")
-    if "abu_dhabi" in row["clientmts_living_arrangement"] and "refuses_abu_dhabi" not in row["maidmts_living_arrangement"]:
-        reasons.append("Maid accepts Abu Dhabi placement.")
+    # Pets
+    if row["clientmts_pet_type"] == "cat" and row["maidmts_pet_type"] != "refuses_cat":
+        explanations["positive"].append("Client has cats, maid accepts cats.")
+    elif row["clientmts_pet_type"] == "cat":
+        explanations["negative"].append("Client has cats, maid refuses cats.")
 
-    return reasons
+    if row["clientmts_pet_type"] == "dog" and row["maidmts_pet_type"] != "refuses_dog":
+        explanations["positive"].append("Client has dogs, maid accepts dogs.")
+    elif row["clientmts_pet_type"] == "dog":
+        explanations["negative"].append("Client has dogs, maid refuses dogs.")
+
+    return explanations
 
 
 # -------------------------------
@@ -180,21 +173,32 @@ if uploaded_file:
     else:
         df = pd.read_excel(uploaded_file)
 
+    # Compute scores
     df["match_score"] = df.apply(calculate_row_score, axis=1)
     df["match_score_pct"] = df["match_score"] * 100
 
-    st.subheader("Match Scores")
-    st.dataframe(df[["client_name", "maid_id", "match_score", "match_score_pct"]])
+    st.subheader("Browse Matches")
+    client_choice = st.selectbox("Select Client", df["client_name"].unique())
+    maid_choice = st.selectbox("Select Maid", df["maid_id"].unique())
 
-    st.subheader("Detailed Explanations")
-    for idx, row in df.iterrows():
-        with st.expander(f"Client {row['client_name']} - Maid {row['maid_id']}"):
-            reasons = explain_row_score(row)
-            if reasons:
-                for r in reasons:
+    # Filter selected row
+    selected = df[(df["client_name"] == client_choice) & (df["maid_id"] == maid_choice)]
+    if not selected.empty:
+        row = selected.iloc[0]
+        explanations = explain_row_score(row)
+
+        st.write(f"**Match Score:** {row['match_score_pct']:.1f}%")
+
+        with st.expander("Positive Matches"):
+            if explanations["positive"]:
+                for r in explanations["positive"]:
                     st.write(f"- {r}")
             else:
-                st.write("No specific reasons recorded.")
+                st.write("No strong positive matches found.")
 
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("Download Results as CSV", csv, "match_scores.csv", "text/csv", key="download-csv")
+        with st.expander("Negative Mismatches"):
+            if explanations["negative"]:
+                for r in explanations["negative"]:
+                    st.write(f"- {r}")
+            else:
+                st.write("No critical mismatches found.")
