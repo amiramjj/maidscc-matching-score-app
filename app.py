@@ -264,27 +264,31 @@ if uploaded_file:
     df["match_score_pct"] = df["match_score"] * 100
 
     st.subheader("All Match Scores (click a row for details)")
+    display_df = df[["client_name", "maid_id", "match_score_pct"]].reset_index()
     selected_row = st.data_editor(
-        df[["client_name", "maid_id", "match_score_pct"]],
+        display_df,
         num_rows="dynamic",
         use_container_width=True,
         key="score_table",
     )
-
+    
+    # If a row is selected
     if isinstance(selected_row, pd.DataFrame) and not selected_row.empty:
-        row = selected_row.iloc[0]
+        selected_index = selected_row.iloc[0]["index"]  # original row index
+        full_row = df.loc[selected_index]  # full row with all features
+    
         st.subheader("Detailed Explanation")
-        explanations = explain_row_score(row)
-
-        st.write(f"**Match Score:** {row['match_score_pct']:.1f}%")
-
+        explanations = explain_row_score(full_row)
+    
+        st.write(f"**Match Score:** {full_row['match_score_pct']:.1f}%")
+    
         with st.expander("Positive Matches"):
             if explanations["positive"]:
                 for r in explanations["positive"]:
                     st.write(f"- {r}")
             else:
                 st.write("No strong positive matches found.")
-
+    
         with st.expander("Negative Mismatches"):
             if explanations["negative"]:
                 for r in explanations["negative"]:
