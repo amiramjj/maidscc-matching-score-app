@@ -233,20 +233,25 @@ if uploaded_file:
     # -------------------------------
     # NEW SECTION: Best Maid per Client
     # -------------------------------
+    
+    # -------------------------------
+    # NEW SECTION: Best Maid per Client
+    # -------------------------------
     st.subheader("Best Maid per Client (Global Search Across All Maids)")
-
+    
     clients = df["client_name"].unique()
     maids = df["maid_id"].unique()
-
+    
     all_pairs = []
     for client in clients:
-        client_row = df[df["client_name"] == client].iloc[0]  # client features
+        client_row = df[df["client_name"] == client].iloc[0].to_dict()  # client features
         for maid in maids:
-            maid_row = df[df["maid_id"] == maid].iloc[0]  # maid features
-
-            # merge features into one synthetic row
-            combined = pd.concat([client_row, maid_row], axis=0)
-
+            maid_row = df[df["maid_id"] == maid].iloc[0].to_dict()  # maid features
+    
+            # merge both dicts into one row
+            combined = {**client_row, **maid_row}
+    
+            # calculate score
             score = calculate_row_score(combined)
             all_pairs.append({
                 "client_name": client,
@@ -254,9 +259,10 @@ if uploaded_file:
                 "match_score": score,
                 "match_score_pct": score * 100
             })
-
+    
     pairwise_df = pd.DataFrame(all_pairs)
-
+    
     # Best maid per client
     best_client_df = pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
     st.dataframe(best_client_df[["client_name", "maid_id", "match_score_pct"]])
+    
