@@ -130,6 +130,44 @@ def calculate_row_score(row):
 
 
 # -------------------------------
+# Explanation Function
+# -------------------------------
+def explain_row_score(row):
+    reasons = []
+    c_house, m_house = row["clientmts_household_type"], row["maidmts_household_type"]
+    if c_house == "baby" and m_house != "refuses_baby":
+        reasons.append("Household type requirement (baby) is satisfied.")
+    elif c_house == "many_kids" and m_house != "refuses_many_kids":
+        reasons.append("Household type requirement (many kids) is satisfied.")
+    elif c_house == "baby_and_kids" and m_house != "refuses_baby_and_kids":
+        reasons.append("Household type requirement (baby and kids) is satisfied.")
+    elif c_house != "unspecified":
+        reasons.append("Household type requirement not satisfied.")
+
+    c_pets, m_pets = row["clientmts_pet_type"], row["maidmts_pet_type"]
+    if c_pets == "cat" and m_pets != "refuses_cat":
+        reasons.append("Maid is fine with cats.")
+    elif c_pets == "dog" and m_pets != "refuses_dog":
+        reasons.append("Maid is fine with dogs.")
+    elif c_pets == "both" and m_pets != "refuses_both_pets":
+        reasons.append("Maid is fine with both cats and dogs.")
+    elif c_pets != "no_pets":
+        reasons.append("Maid refuses the pet type required.")
+
+    if row["clientmts_dayoff_policy"] not in ["", "unspecified"] and row["maidmts_dayoff_policy"] != "refuses_fixed_sunday":
+        reasons.append("Day-off policy is acceptable.")
+    elif row["clientmts_dayoff_policy"] not in ["", "unspecified"]:
+        reasons.append("Day-off policy is not acceptable.")
+
+    if "private_room" in row["clientmts_living_arrangement"] and "requires_no_private_room" not in row["maidmts_living_arrangement"]:
+        reasons.append("Maid accepts private room arrangement.")
+    if "abu_dhabi" in row["clientmts_living_arrangement"] and "refuses_abu_dhabi" not in row["maidmts_living_arrangement"]:
+        reasons.append("Maid accepts Abu Dhabi placement.")
+
+    return reasons
+
+
+# -------------------------------
 # Streamlit UI
 # -------------------------------
 st.title("Maids.cc Matching Score App")
@@ -137,25 +175,26 @@ st.title("Maids.cc Matching Score App")
 uploaded_file = st.file_uploader("Upload dataset (Excel/CSV)", type=["xlsx", "csv"])
 
 if uploaded_file:
-    # Load file
     if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file)
     else:
         df = pd.read_excel(uploaded_file)
 
-    # Apply scoring
     df["match_score"] = df.apply(calculate_row_score, axis=1)
     df["match_score_pct"] = df["match_score"] * 100
 
     st.subheader("Match Scores")
     st.dataframe(df[["client_name", "maid_id", "match_score", "match_score_pct"]])
 
-    # Download results
+    st.subheader("Detailed Explanations")
+    for idx, row in df.iterrows():
+        with st.expander(f"Client {row['client_name']} - Maid {row['maid_id']}"):
+            reasons = explain_row_score(row)
+            if reasons:
+                for r in reasons:
+                    st.write(f"- {r}")
+            else:
+                st.write("No specific reasons recorded.")
+
     csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "Download Results as CSV",
-        csv,
-        "match_scores.csv",
-        "text/csv",
-        key="download-csv"
-    )
+    st.download_button("Download Results as CSV", csv, "match_scores.csv", "text/csv", key="download-csv")
