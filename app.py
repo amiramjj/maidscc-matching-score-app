@@ -6,16 +6,11 @@ import pandas as pd
 # -------------------------------
 def calculate_row_score(row):
     score = 0.0
-
-    # Weights
     weight_strong = 0.6
     weight_moderate = 0.3
     weight_bonus = 0.1
-
-    # Track maximum possible score for this row
     max_score = 0.0
 
-    # ========== STRONG ALIGNMENT ==========
     # Household Type
     c_house = row["clientmts_household_type"]
     m_house = row["maidmts_household_type"]
@@ -59,25 +54,23 @@ def calculate_row_score(row):
         ):
             score += weight_strong
 
-    # ========== MODERATE ALIGNMENT ==========
-    # Nationality Preference
+    # Nationality
     if "maid_nationality" in row and row["clientmts_nationality_preference"] != "any":
         max_score += weight_moderate
         if row["clientmts_nationality_preference"] in str(row["maid_nationality"]):
             score += weight_moderate
 
-    # Cuisine Preference vs Maid Cooking Group
+    # Cuisine
     c_cuisine = row["clientmts_cuisine_preference"]
     m_cooking = str(row.get("cooking_group", "not_specified"))
     if c_cuisine != "unspecified" and m_cooking != "not_specified":
         max_score += weight_moderate
         c_set = set(c_cuisine.split("+"))
         m_set = set(m_cooking.split("+"))
-        if c_set & m_set:  # intersection not empty
+        if c_set & m_set:
             score += weight_moderate
 
-    # ========== WEAK ALIGNMENT (BONUS) ==========
-    # Special cases (elderly, special needs)
+    # Special cases
     c_special = row["clientmts_special_cases"]
     m_care = row["maidpref_caregiving_profile"]
     if c_special != "unspecified":
@@ -120,13 +113,9 @@ def calculate_row_score(row):
     if row["maidpref_smoking"] == "non_smoker":
         score += weight_bonus
 
-    # Normalize score (avoid divide by zero)
     if max_score > 0:
-        normalized_score = score / max_score
-    else:
-        normalized_score = 0.0
-
-    return normalized_score
+        return score / max_score
+    return 0.0
 
 
 # -------------------------------
