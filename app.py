@@ -12,8 +12,8 @@ def calculate_row_score(row):
     max_score = 0.0
 
     # Household Type
-    c_house = row["clientmts_household_type"]
-    m_house = row["maidmts_household_type"]
+    c_house = row.get("clientmts_household_type", "unspecified")
+    m_house = row.get("maidmts_household_type", "no_restriction_household_type")
     if c_house != "unspecified":
         max_score += weight_strong
         if (
@@ -24,8 +24,8 @@ def calculate_row_score(row):
             score += weight_strong
 
     # Pets
-    c_pets = row["clientmts_pet_type"]
-    m_pets = row["maidmts_pet_type"]
+    c_pets = row.get("clientmts_pet_type", "no_pets")
+    m_pets = row.get("maidmts_pet_type", "no_restriction_pets")
     if c_pets != "no_pets":
         max_score += weight_strong
         if (
@@ -36,16 +36,16 @@ def calculate_row_score(row):
             score += weight_strong
 
     # Day-off Policy
-    c_dayoff = row["clientmts_dayoff_policy"]
-    m_dayoff = row["maidmts_dayoff_policy"]
+    c_dayoff = row.get("clientmts_dayoff_policy", "unspecified")
+    m_dayoff = row.get("maidmts_dayoff_policy", "no_restriction_dayoff")
     if c_dayoff != "unspecified":
         max_score += weight_strong
         if c_dayoff not in ["", "unspecified"] and m_dayoff != "refuses_fixed_sunday":
             score += weight_strong
 
     # Living Arrangement
-    c_living = row["clientmts_living_arrangement"]
-    m_living = row["maidmts_living_arrangement"]
+    c_living = row.get("clientmts_living_arrangement", "unspecified")
+    m_living = row.get("maidmts_living_arrangement", "no_restriction_living_arrangement")
     if c_living != "unspecified":
         max_score += weight_strong
         if (
@@ -55,13 +55,13 @@ def calculate_row_score(row):
             score += weight_strong
 
     # Nationality
-    if "maid_nationality" in row and row["clientmts_nationality_preference"] != "any":
+    if "maid_nationality" in row and row.get("clientmts_nationality_preference", "any") != "any":
         max_score += weight_moderate
         if row["clientmts_nationality_preference"] in str(row["maid_nationality"]):
             score += weight_moderate
 
     # Cuisine
-    c_cuisine = row["clientmts_cuisine_preference"]
+    c_cuisine = row.get("clientmts_cuisine_preference", "unspecified")
     m_cooking = str(row.get("cooking_group", "not_specified"))
     if c_cuisine != "unspecified" and m_cooking != "not_specified":
         max_score += weight_moderate
@@ -71,8 +71,8 @@ def calculate_row_score(row):
             score += weight_moderate
 
     # Special cases
-    c_special = row["clientmts_special_cases"]
-    m_care = row["maidpref_caregiving_profile"]
+    c_special = row.get("clientmts_special_cases", "unspecified")
+    m_care = row.get("maidpref_caregiving_profile", "unspecified")
     if c_special != "unspecified":
         max_score += weight_bonus
         if (
@@ -86,9 +86,9 @@ def calculate_row_score(row):
     if c_house in ["baby", "many_kids", "baby_and_kids"]:
         max_score += weight_bonus
         if (
-            (c_house == "baby" and row["maidpref_kids_experience"] in ["lessthan2", "both"]) or
-            (c_house == "many_kids" and row["maidpref_kids_experience"] in ["above2", "both"]) or
-            (c_house == "baby_and_kids" and row["maidpref_kids_experience"] == "both")
+            (c_house == "baby" and row.get("maidpref_kids_experience") in ["lessthan2", "both"]) or
+            (c_house == "many_kids" and row.get("maidpref_kids_experience") in ["above2", "both"]) or
+            (c_house == "baby_and_kids" and row.get("maidpref_kids_experience") == "both")
         ):
             score += weight_bonus
 
@@ -96,21 +96,21 @@ def calculate_row_score(row):
     if c_pets != "no_pets":
         max_score += weight_bonus
         if (
-            (c_pets == "cat" and row["maidpref_pet_handling"] in ["cats", "both"]) or
-            (c_pets == "dog" and row["maidpref_pet_handling"] in ["dogs", "both"]) or
-            (c_pets == "both" and row["maidpref_pet_handling"] == "both")
+            (c_pets == "cat" and row.get("maidpref_pet_handling") in ["cats", "both"]) or
+            (c_pets == "dog" and row.get("maidpref_pet_handling") in ["dogs", "both"]) or
+            (c_pets == "both" and row.get("maidpref_pet_handling") == "both")
         ):
             score += weight_bonus
 
     # Vegetarian / lifestyle
     if "veg" in c_cuisine:
         max_score += weight_bonus
-        if "veg_friendly" in str(row["maidpref_personality"]):
+        if "veg_friendly" in str(row.get("maidpref_personality", "")):
             score += weight_bonus
 
     # Smoking
     max_score += weight_bonus
-    if row["maidpref_smoking"] == "non_smoker":
+    if row.get("maidpref_smoking") == "non_smoker":
         score += weight_bonus
 
     if max_score > 0:
@@ -119,32 +119,129 @@ def calculate_row_score(row):
 
 
 # -------------------------------
-# Explanation Function
+# Explanation Function (full coverage)
 # -------------------------------
 def explain_row_score(row):
     explanations = {"positive": [], "negative": []}
 
     # Household
-    if row["clientmts_household_type"] == "baby" and row["maidmts_household_type"] != "refuses_baby":
-        explanations["positive"].append("Client wants baby care, maid accepts baby households.")
-    elif row["clientmts_household_type"] == "baby":
-        explanations["negative"].append("Client wants baby care, maid refuses baby households.")
-
-    if row["clientmts_household_type"] == "many_kids" and row["maidmts_household_type"] != "refuses_many_kids":
-        explanations["positive"].append("Client has many kids, maid accepts large households.")
-    elif row["clientmts_household_type"] == "many_kids":
-        explanations["negative"].append("Client has many kids, maid refuses large households.")
+    c_house = row.get("clientmts_household_type", "unspecified")
+    m_house = row.get("maidmts_household_type", "no_restriction_household_type")
+    if c_house == "baby":
+        if m_house == "refuses_baby":
+            explanations["negative"].append("Client has a baby, maid refuses baby households.")
+        else:
+            explanations["positive"].append("Client has a baby, maid accepts.")
+    elif c_house == "many_kids":
+        if m_house == "refuses_many_kids":
+            explanations["negative"].append("Client has many kids, maid refuses large households.")
+        else:
+            explanations["positive"].append("Client has many kids, maid accepts.")
+    elif c_house == "baby_and_kids":
+        if m_house == "refuses_baby_and_kids":
+            explanations["negative"].append("Client has baby and kids, maid refuses.")
+        else:
+            explanations["positive"].append("Client has baby and kids, maid accepts.")
 
     # Pets
-    if row["clientmts_pet_type"] == "cat" and row["maidmts_pet_type"] != "refuses_cat":
-        explanations["positive"].append("Client has cats, maid accepts cats.")
-    elif row["clientmts_pet_type"] == "cat":
-        explanations["negative"].append("Client has cats, maid refuses cats.")
+    c_pets = row.get("clientmts_pet_type", "no_pets")
+    m_pets = row.get("maidmts_pet_type", "no_restriction_pets")
+    if c_pets == "cat":
+        explanations["positive" if m_pets != "refuses_cat" else "negative"].append(
+            "Client has cats, " + ("maid accepts cats." if m_pets != "refuses_cat" else "maid refuses cats.")
+        )
+    if c_pets == "dog":
+        explanations["positive" if m_pets != "refuses_dog" else "negative"].append(
+            "Client has dogs, " + ("maid accepts dogs." if m_pets != "refuses_dog" else "maid refuses dogs.")
+        )
+    if c_pets == "both":
+        explanations["positive" if m_pets != "refuses_both_pets" else "negative"].append(
+            "Client has both cat and dog, " + ("maid accepts both." if m_pets != "refuses_both_pets" else "maid refuses both.")
+        )
 
-    if row["clientmts_pet_type"] == "dog" and row["maidmts_pet_type"] != "refuses_dog":
-        explanations["positive"].append("Client has dogs, maid accepts dogs.")
-    elif row["clientmts_pet_type"] == "dog":
-        explanations["negative"].append("Client has dogs, maid refuses dogs.")
+    # Day-off
+    if row.get("clientmts_dayoff_policy", "unspecified") != "unspecified":
+        if row.get("maidmts_dayoff_policy", "no_restriction_dayoff") == "refuses_fixed_sunday":
+            explanations["negative"].append("Client offers flexible day-off, maid only accepts Sunday.")
+        else:
+            explanations["positive"].append("Day-off policy is compatible.")
+
+    # Living
+    c_living = row.get("clientmts_living_arrangement", "unspecified")
+    m_living = row.get("maidmts_living_arrangement", "no_restriction_living_arrangement")
+    if "private_room" in c_living:
+        explanations["positive" if "requires_no_private_room" not in m_living else "negative"].append(
+            "Client provides private room, " + ("maid accepts." if "requires_no_private_room" not in m_living else "maid refuses private rooms.")
+        )
+    if "abu_dhabi" in c_living:
+        explanations["positive" if "refuses_abu_dhabi" not in m_living else "negative"].append(
+            "Client is in Abu Dhabi, " + ("maid accepts." if "refuses_abu_dhabi" not in m_living else "maid refuses Abu Dhabi placements.")
+        )
+
+    # Nationality
+    if row.get("clientmts_nationality_preference", "any") != "any":
+        if row["clientmts_nationality_preference"] in str(row.get("maid_nationality", "")):
+            explanations["positive"].append(f"Client prefers {row['clientmts_nationality_preference']}, maid matches.")
+        else:
+            explanations["negative"].append(f"Client prefers {row['clientmts_nationality_preference']}, maid does not match.")
+
+    # Cuisine
+    c_cuisine = row.get("clientmts_cuisine_preference", "unspecified")
+    m_cooking = str(row.get("cooking_group", "not_specified"))
+    if c_cuisine != "unspecified" and m_cooking != "not_specified":
+        c_set, m_set = set(c_cuisine.split("+")), set(m_cooking.split("+"))
+        if c_set & m_set:
+            explanations["positive"].append(f"Client prefers {c_cuisine}, maid can cook it.")
+        else:
+            explanations["negative"].append(f"Client prefers {c_cuisine}, maid cannot cook it.")
+
+    # Special cases
+    c_special = row.get("clientmts_special_cases", "unspecified")
+    m_care = row.get("maidpref_caregiving_profile", "unspecified")
+    if c_special != "unspecified":
+        if (
+            (c_special == "elderly" and m_care in ["elderly_experienced", "elderly_and_special"]) or
+            (c_special == "special_needs" and m_care in ["special_needs", "elderly_and_special"]) or
+            (c_special == "elderly_and_special" and m_care == "elderly_and_special")
+        ):
+            explanations["positive"].append(f"Client requires {c_special}, maid matches.")
+        else:
+            explanations["negative"].append(f"Client requires {c_special}, maid does not match.")
+
+    # Kids experience
+    if c_house in ["baby", "many_kids", "baby_and_kids"]:
+        if (
+            (c_house == "baby" and row.get("maidpref_kids_experience") in ["lessthan2", "both"]) or
+            (c_house == "many_kids" and row.get("maidpref_kids_experience") in ["above2", "both"]) or
+            (c_house == "baby_and_kids" and row.get("maidpref_kids_experience") == "both")
+        ):
+            explanations["positive"].append("Maid has the required kids experience.")
+        else:
+            explanations["negative"].append("Maid lacks the required kids experience.")
+
+    # Pets handling
+    if c_pets != "no_pets":
+        if (
+            (c_pets == "cat" and row.get("maidpref_pet_handling") in ["cats", "both"]) or
+            (c_pets == "dog" and row.get("maidpref_pet_handling") in ["dogs", "both"]) or
+            (c_pets == "both" and row.get("maidpref_pet_handling") == "both")
+        ):
+            explanations["positive"].append("Maid has the required pet handling skills.")
+        else:
+            explanations["negative"].append("Maid lacks the required pet handling skills.")
+
+    # Vegetarian
+    if "veg" in c_cuisine:
+        if "veg_friendly" in str(row.get("maidpref_personality", "")):
+            explanations["positive"].append("Client is vegetarian, maid is veg-friendly.")
+        else:
+            explanations["negative"].append("Client is vegetarian, maid is not veg-friendly.")
+
+    # Smoking
+    if row.get("maidpref_smoking") == "non_smoker":
+        explanations["positive"].append("Maid is a non-smoker, suitable for client.")
+    else:
+        explanations["negative"].append("Maid's smoking status not compatible.")
 
     return explanations
 
@@ -174,9 +271,8 @@ if uploaded_file:
         key="score_table",
     )
 
-    # Check if user selected a row
     if isinstance(selected_row, pd.DataFrame) and not selected_row.empty:
-        row = selected_row.iloc[0]  # take first selected row
+        row = selected_row.iloc[0]
         st.subheader("Detailed Explanation")
         explanations = explain_row_score(row)
 
