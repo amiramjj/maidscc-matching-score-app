@@ -177,18 +177,18 @@ if uploaded_file:
     df["match_score"] = df.apply(calculate_row_score, axis=1)
     df["match_score_pct"] = df["match_score"] * 100
 
-    # Show summary table
-    st.subheader("All Match Scores")
-    st.dataframe(df[["client_name", "maid_id", "match_score", "match_score_pct"]])
+    st.subheader("All Match Scores (click a row for details)")
+    selected_row = st.data_editor(
+        df[["client_name", "maid_id", "match_score_pct"]],
+        num_rows="dynamic",
+        use_container_width=True,
+        key="score_table",
+    )
 
-    # Drill-down explanation
-    st.subheader("Detailed Explanation")
-    client_choice = st.selectbox("Select Client", df["client_name"].unique())
-    maid_choice = st.selectbox("Select Maid", df["maid_id"].unique())
-
-    selected = df[(df["client_name"] == client_choice) & (df["maid_id"] == maid_choice)]
-    if not selected.empty:
-        row = selected.iloc[0]
+    # Check if user selected a row
+    if isinstance(selected_row, pd.DataFrame) and not selected_row.empty:
+        row = selected_row.iloc[0]  # take first selected row
+        st.subheader("Detailed Explanation")
         explanations = explain_row_score(row)
 
         st.write(f"**Match Score:** {row['match_score_pct']:.1f}%")
