@@ -135,7 +135,7 @@ def explain_row_score(row):
         elif row["clientmts_household_type"] == "many_kids":
             explanations["negative"].append("Client has many kids, maid refuses it.")
     else:
-        explanations["neutral"].append("Client did not specify household type, maid profile present.")
+        explanations["neutral"].append("Client did not specify household type.")
 
     # Pets
     if row["clientmts_pet_type"] != "no_pets":
@@ -148,7 +148,7 @@ def explain_row_score(row):
         elif row["clientmts_pet_type"] == "dog":
             explanations["negative"].append("Client has dogs, maid refuses dogs.")
     else:
-        explanations["neutral"].append("Client did not specify pets, maid profile present.")
+        explanations["neutral"].append("Client did not specify pets.")
 
     # Day-off
     if row["clientmts_dayoff_policy"] != "unspecified":
@@ -248,6 +248,67 @@ if uploaded_file:
         for r in explanations["negative"]:
             st.write(f"- {r}")
 
+    with st.expander("Neutral Notes"):
+        for r in explanations["neutral"]:
+            st.write(f"- {r}")
+
+    # -------------------------------
+    # NEW SECTION: Best Matches
+    # -------------------------------
+    st.subheader("Best Matches Overview")
+
+    # Best maid per client
+    best_client_matches = []
+    for client in df["client_name"].unique():
+        client_rows = df[df["client_name"] == client]
+        best_row = client_rows.loc[client_rows["match_score"].idxmax()]
+        best_client_matches.append({
+            "client_name": client,
+            "best_maid_id": best_row["maid_id"],
+            "best_score_pct": best_row["match_score_pct"]
+        })
+    best_client_df = pd.DataFrame(best_client_matches)
+
+    # Best client per maid
+    best_maid_matches = []
+    for maid in df["maid_id"].unique():
+        maid_rows = df[df["maid_id"] == maid]
+        best_row = maid_rows.loc[maid_rows["match_score"].idxmax()]
+        best_maid_matches.append({
+            "maid_id": maid,
+            "best_client_name": best_row["client_name"],
+            "best_score_pct": best_row["match_score_pct"]
+        })
+    best_maid_df = pd.DataFrame(best_maid_matches)
+
+    # Display
+    st.write("### Best Maid per Client")
+    st.dataframe(best_client_df)
+
+    st.write("### Best Client per Maid")
+    st.dataframe(best_maid_df)
+
+    # Select from best matches for detailed explanation
+    st.subheader("Explain a Best Match")
+    choice_type = st.radio("Select Match Type", ["Client → Maid", "Maid → Client"])
+
+    if choice_type == "Client → Maid":
+        client_sel = st.selectbox("Choose Client", best_client_df["client_name"].unique())
+        maid_sel = best_client_df[best_client_df["client_name"] == client_sel]["best_maid_id"].iloc[0]
+    else:
+        maid_sel = st.selectbox("Choose Maid", best_maid_df["maid_id"].unique())
+        client_sel = best_maid_df[best_maid_df["maid_id"] == maid_sel]["best_client_name"].iloc[0]
+
+    match_row = df[(df["client_name"] == client_sel) & (df["maid_id"] == maid_sel)].iloc[0]
+    st.write(f"**Best Match Score:** {match_row['match_score_pct']:.1f}%")
+
+    explanations = explain_row_score(match_row)
+    with st.expander("Positive Matches"):
+        for r in explanations["positive"]:
+            st.write(f"- {r}")
+    with st.expander("Negative Mismatches"):
+        for r in explanations["negative"]:
+            st.write(f"- {r}")
     with st.expander("Neutral Notes"):
         for r in explanations["neutral"]:
             st.write(f"- {r}")
