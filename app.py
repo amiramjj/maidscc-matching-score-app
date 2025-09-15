@@ -362,4 +362,15 @@ if uploaded_file:
         for col in maid_cols:
             st.write(f"- **{col}**: {maid_row[col]}")
 
-        st.subheader("Maid Profile Explorer")
+        # -------------------------------
+        # Section 2: Group by Feature
+        # -------------------------------
+        st.markdown("### 📊 Group Maids by Feature")
+    
+        feature_choice = st.selectbox("Choose a feature to group by", maid_cols)
+    
+        if feature_choice:
+            grouped = maids_df.groupby(feature_choice)["maid_id"].apply(list).reset_index()
+            grouped.columns = [feature_choice, "maid_ids"]
+    
+            st.dataframe(grouped, use_container_width=True)
