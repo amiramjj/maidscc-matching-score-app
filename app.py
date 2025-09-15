@@ -131,47 +131,48 @@ if uploaded_file:
     else:
         df = pd.read_excel(uploaded_file)
 
-    # Compute scores for tagged pairs
+    # Compute scores for tagged pairs (Tab 1)
     df["match_score"] = df.apply(calculate_row_score, axis=1)
     df["match_score_pct"] = df["match_score"] * 100
 
-    # -------------------------------
     # Tabs
-    # -------------------------------
     tab1, tab2 = st.tabs(["All Match Scores (tagged pairs)", "Best Maid per Client (Global Search)"])
 
+    # -------------------------------
     # Tab 1: Tagged pairs
+    # -------------------------------
     with tab1:
         st.subheader("All Match Scores (tagged pairs)")
         st.dataframe(df[["client_name", "maid_id", "match_score_pct"]])
 
-    # Tab 2: Best maid per client
+    # -------------------------------
+    # Tab 2: Best Maid per Client
+    # -------------------------------
     with tab2:
         st.subheader("Best Maid per Client (Global Search Across All Maids)")
 
-        clients = df["client_name"].unique()
-        maids = df["maid_id"].unique()
+        # ✅ Cache this heavy computation
+        @st.cache_data
+        def compute_best_matches(df):
+            clients = df.drop_duplicates("client_name").to_dict("records")
+            maids = df.drop_duplicates("maid_id").to_dict("records")
 
-        all_pairs = []
-        for client in clients:
-            client_row = df[df["client_name"] == client].iloc[0].to_dict()
-            for maid in maids:
-                maid_row = df[df["maid_id"] == maid].iloc[0].to_dict()
+            all_pairs = []
+            for client in clients:
+                for maid in maids:
+                    combined = {**client, **maid}
+                    score = calculate_row_score(combined)
+                    all_pairs.append({
+                        "client_name": client["client_name"],
+                        "maid_id": maid["maid_id"],
+                        "match_score": score,
+                        "match_score_pct": score * 100
+                    })
 
-                # merge both dicts into one row
-                combined = {**client_row, **maid_row}
+            pairwise_df = pd.DataFrame(all_pairs)
+            best_client_df = pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
+            return best_client_df
 
-                # calculate score
-                score = calculate_row_score(combined)
-                all_pairs.append({
-                    "client_name": client,
-                    "maid_id": maid,
-                    "match_score": score,
-                    "match_score_pct": score * 100
-                })
+        best_client_df = compute_best_matches(df)
 
-        pairwise_df = pd.DataFrame(all_pairs)
-
-        # Best maid per client
-        best_client_df = pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
         st.dataframe(best_client_df[["client_name", "maid_id", "match_score_pct"]])
