@@ -346,27 +346,19 @@ if uploaded_file:
     with tab3:
         st.subheader("Maid Profile Explorer")
     
-        # Deduplicate columns to avoid PyArrow error
+        # Drop duplicates, remove duplicate columns, ignore maidmts_at_hiring
         maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
         maids_df = maids_df.loc[:, ~maids_df.columns.duplicated()]
+        maid_cols = [
+            c for c in maids_df.columns 
+            if (c.startswith("maidmts_") or c.startswith("maidpref_") or c.startswith("maid_")) 
+            and c != "maidmts_at_hiring"
+        ]
     
-        # Detect maid-related columns
-        maid_cols = [c for c in maids_df.columns if c.startswith("maidmts_") 
-                     or c.startswith("maidpref_") or c.startswith("maid_")]
-    
-        # Profile Explorer only
-        maid_sel = st.selectbox("Choose Maid", maids_df["maid_id"].unique())
-        maid_row = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
-    
-        st.write(f"**Maid ID:** {maid_row['maid_id']}")
-        for col in maid_cols:
-            st.write(f"- **{col}**: {maid_row[col]}")
-
         # -------------------------------
-        # Section 2: Group by Feature
+        # Section 1: Group Maids by Feature
         # -------------------------------
         st.markdown("### 📊 Group Maids by Feature")
-    
         feature_choice = st.selectbox("Choose a feature to group by", maid_cols)
     
         if feature_choice:
@@ -374,3 +366,19 @@ if uploaded_file:
             grouped.columns = [feature_choice, "maid_ids"]
     
             st.dataframe(grouped, use_container_width=True)
+    
+            # -------------------------------
+            # Section 2: Explore Selected Maid
+            # -------------------------------
+            st.markdown("### 🔎 Explore Maid Profile")
+    
+            # Let user pick a maid id from the grouped lists
+            all_maids = sorted(maids_df["maid_id"].dropna().unique().tolist())
+            maid_sel = st.selectbox("Choose Maid ID", all_maids)
+    
+            if maid_sel:
+                maid_row = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
+    
+                st.write(f"**Maid ID:** {maid_row['maid_id']}")
+                for col in maid_cols:
+                    st.write(f"- **{col}**: {maid_row[col]}")
