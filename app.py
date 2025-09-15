@@ -340,6 +340,7 @@ if uploaded_file:
             for r in explanations["neutral"]:
                 st.write(f"- {r}")
 
+
     # -------------------------------
     # Tab 3: Maid Profile Explorer
     # -------------------------------
@@ -353,8 +354,11 @@ if uploaded_file:
         # Drop duplicates by maid_id to get one row per maid
         maids_df = df[["maid_id"] + maid_cols].drop_duplicates(subset=["maid_id"]).reset_index(drop=True)
     
+        # Convert to list for selectbox
+        maid_options = maids_df["maid_id"].dropna().unique().tolist()
+    
         # Dropdown to select a maid
-        selected_maid = st.selectbox("Choose a Maid ID", maids_df["maid_id"].unique())
+        selected_maid = st.selectbox("Choose a Maid ID", maid_options)
     
         # Show details of the selected maid
         maid_profile = maids_df[maids_df["maid_id"] == selected_maid].iloc[0]
@@ -362,4 +366,3 @@ if uploaded_file:
         st.markdown(f"### Maid ID: {selected_maid}")
         for col in maid_cols:
             st.write(f"**{col}:** {maid_profile[col]}")
-
