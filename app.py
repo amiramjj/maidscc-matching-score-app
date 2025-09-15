@@ -342,27 +342,30 @@ if uploaded_file:
 
 
     # -------------------------------
-    # Tab 3: Maid Profile Explorer
+    # Tab 3: Maid Profiles
     # -------------------------------
     with tab3:
-        st.subheader("Maid Profile Explorer")
+        st.subheader("Maid Profiles")
     
-        # Keep only maid-specific columns
-        maid_cols = [col for col in df.columns if col.startswith("maidmts_") or 
-                     col.startswith("maidpref_") or col.startswith("maid_")]
+        # Deduplicate columns to avoid PyArrow error
+        maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
+        maids_df = maids_df.loc[:, ~maids_df.columns.duplicated()]
     
-        # Drop duplicates by maid_id to get one row per maid
-        maids_df = df[["maid_id"] + maid_cols].drop_duplicates(subset=["maid_id"]).reset_index(drop=True)
+        # Detect maid-related columns
+        maid_cols = [c for c in maids_df.columns if c.startswith("maidmts_") or c.startswith("maidpref_") or c.startswith("maid_")]
     
-        # Convert to list for selectbox
-        maid_options = maids_df["maid_id"].dropna().unique().tolist()
+        # Toggle between views
+        view_choice = st.radio("Choose view:", ["Table", "Profile Explorer"], horizontal=True)
     
-        # Dropdown to select a maid
-        selected_maid = st.selectbox("Choose a Maid ID", maid_options)
+        if view_choice == "Table":
+            st.write("### All Maids (searchable table)")
+            st.dataframe(maids_df[["maid_id"] + maid_cols])
     
-        # Show details of the selected maid
-        maid_profile = maids_df[maids_df["maid_id"] == selected_maid].iloc[0]
+        elif view_choice == "Profile Explorer":
+            st.write("### Explore a Maid Profile")
+            maid_sel = st.selectbox("Choose Maid", maids_df["maid_id"].unique())
+            maid_row = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
     
-        st.markdown(f"### Maid ID: {selected_maid}")
-        for col in maid_cols:
-            st.write(f"**{col}:** {maid_profile[col]}")
+            st.write(f"**Maid ID:** {maid_row['maid_id']}")
+            for col in maid_cols:
+                st.write(f"- **{col}**: {maid_row[col]}")
