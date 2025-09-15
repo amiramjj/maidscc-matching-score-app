@@ -344,41 +344,35 @@ if uploaded_file:
     # Tab 3: Maid Profile Explorer
     # -------------------------------
     with tab3:
-        st.subheader("Maid Profile Explorer")
+        st.subheader("🧑‍💼 Maid Profile Explorer")
     
-        # Drop duplicates, remove duplicate columns, ignore maidmts_at_hiring
+        # Deduplicate by maid_id
         maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
         maids_df = maids_df.loc[:, ~maids_df.columns.duplicated()]
+    
+        # Detect maid-related columns (exclude 'maidmts_at_hiring')
         maid_cols = [
-            c for c in maids_df.columns 
-            if (c.startswith("maidmts_") or c.startswith("maidpref_") or c.startswith("maid_")) 
+            c for c in maids_df.columns
+            if (c.startswith("maidmts_") or c.startswith("maidpref_") or c.startswith("maid_"))
             and c != "maidmts_at_hiring"
         ]
     
-        # -------------------------------
-        # Section 1: Group Maids by Feature
-        # -------------------------------
+        # Group Explorer
         st.markdown("### 📊 Group Maids by Feature")
         feature_choice = st.selectbox("Choose a feature to group by", maid_cols)
     
         if feature_choice:
             grouped = maids_df.groupby(feature_choice)["maid_id"].apply(list).reset_index()
-            grouped.columns = [feature_choice, "maid_ids"]
     
-            st.dataframe(grouped, use_container_width=True)
+            for _, row in grouped.iterrows():
+                with st.expander(f"{feature_choice}: {row[feature_choice]}"):
+                    maid_list = sorted(row["maid_id"])
+                    for mid in maid_list:
+                        if st.button(f"Maid {mid}", key=f"maid_{mid}"):
+                            maid_row = maids_df[maids_df["maid_id"] == mid].iloc[0]
     
-            # -------------------------------
-            # Section 2: Explore Selected Maid
-            # -------------------------------
-            st.markdown("### 🔎 Explore Maid Profile")
+                            st.markdown(f"### 🆔 Maid {maid_row['maid_id']}")
+                            for col in maid_cols:
+                                st.write(f"- **{col}**: {maid_row[col]}")
     
-            # Let user pick a maid id from the grouped lists
-            all_maids = sorted(maids_df["maid_id"].dropna().unique().tolist())
-            maid_sel = st.selectbox("Choose Maid ID", all_maids)
-    
-            if maid_sel:
-                maid_row = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
-    
-                st.write(f"**Maid ID:** {maid_row['maid_id']}")
-                for col in maid_cols:
-                    st.write(f"- **{col}**: {maid_row[col]}")
+            
