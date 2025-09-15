@@ -346,20 +346,20 @@ if uploaded_file:
     with tab3:
         st.subheader("Maid Profile Explorer")
     
-        # Keep only maid-specific columns
-        maid_cols = [col for col in df.columns if col.startswith("maidmts_") or 
-                     col.startswith("maidpref_") or col.startswith("maid_")]
+        # Deduplicate columns to avoid PyArrow error
+        maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
+        maids_df = maids_df.loc[:, ~maids_df.columns.duplicated()]
     
-        # Build maid profiles dataframe
-        maids_df = df[["maid_id"] + maid_cols].drop_duplicates(subset=["maid_id"]).reset_index(drop=True)
+        # Detect maid-related columns
+        maid_cols = [c for c in maids_df.columns if c.startswith("maidmts_") 
+                     or c.startswith("maidpref_") or c.startswith("maid_")]
     
-        # Dropdown of unique maid IDs
-        maid_options = maids_df["maid_id"].dropna().astype(str).unique().tolist()
-        selected_maid = st.selectbox("Choose a Maid ID", maid_options)
+        # Profile Explorer only
+        maid_sel = st.selectbox("Choose Maid", maids_df["maid_id"].unique())
+        maid_row = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
     
-        # Display selected maid profile
-        maid_profile = maids_df[maids_df["maid_id"].astype(str) == selected_maid].iloc[0]
-    
-        st.markdown(f"### Maid ID: {selected_maid}")
+        st.write(f"**Maid ID:** {maid_row['maid_id']}")
         for col in maid_cols:
-            st.write(f"**{col}:** {maid_profile[col]}")
+            st.write(f"- **{col}**: {maid_row[col]}")
+
+        st.subheader("Maid Profile Explorer")
