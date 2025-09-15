@@ -345,22 +345,27 @@ if uploaded_file:
     # -------------------------------
     with tab3:
         st.subheader("Maid Profiles")
-
-        # Get unique maid profiles
+    
+        # Deduplicate columns to avoid PyArrow error
         maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
-
-        # Show full searchable table
-        st.write("### All Maids (searchable table)")
-        maid_cols = [col for col in df.columns if col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_")]
-        st.dataframe(maids_df[["maid_id"] + maid_cols])
-
-        # Profile explorer
-        st.write("### Explore Individual Maid")
-        maid_sel = st.selectbox("Choose Maid ID", maids_df["maid_id"].unique())
-        maid_profile = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
-
-        st.markdown(f"**Maid ID:** {maid_sel}")
-        st.markdown("#### Matching Types & Preferences")
-        for col in maid_cols:
-            value = maid_profile[col]
-            st.write(f"- **{col}:** {value}")
+        maids_df = maids_df.loc[:, ~maids_df.columns.duplicated()]
+    
+        # Detect maid-related columns
+        maid_cols = [c for c in maids_df.columns if c.startswith("maidmts_") or c.startswith("maidpref_") or c.startswith("maid_")]
+    
+        # Toggle between views
+        view_choice = st.radio("Choose view:", ["Table", "Profile Explorer"], horizontal=True)
+    
+        if view_choice == "Table":
+            st.write("### All Maids (searchable table)")
+            st.dataframe(maids_df[["maid_id"] + maid_cols])
+    
+        elif view_choice == "Profile Explorer":
+            st.write("### Explore a Maid Profile")
+            maid_sel = st.selectbox("Choose Maid", maids_df["maid_id"].unique())
+            maid_row = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
+    
+            st.write(f"**Maid ID:** {maid_row['maid_id']}")
+            for col in maid_cols:
+                st.write(f"- **{col}**: {maid_row[col]}")
+    
