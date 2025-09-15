@@ -137,82 +137,85 @@ if uploaded_file:
 
     # Tabs
     tab1, tab2 = st.tabs(["All Match Scores (tagged pairs)", "Best Maid per Client (Global Search)"])
-
+    # Tabs
+    tab1, tab2 = st.tabs(["All Match Scores (tagged pairs)", "Best Maid per Client (Global Search)"])
+    
     # -------------------------------
     # Tab 1: Tagged pairs
     # -------------------------------
     with tab1:
         st.subheader("All Match Scores (tagged pairs)")
         st.dataframe(df[["client_name", "maid_id", "match_score_pct"]])
-
-    # -------------------------------
-    # NEW SECTION: Best Maid per Client (Global Search Across All Maids)
-    # -------------------------------
-    st.subheader("Best Maid per Client (Global Search Across All Maids)")
-    
-    @st.cache_data
-    def compute_global_matches(df):
-        # Unique profiles
-        clients_df = df.drop_duplicates(subset=["client_name"]).copy()
-        maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
-    
-        # Add key for cross join
-        clients_df["key"] = 1
-        maids_df["key"] = 1
-    
-        # Cross join (client × maid)
-        cross = clients_df.merge(maids_df, on="key", suffixes=("_client", "_maid")).drop("key", axis=1)
-    
-        # Compute scores
-        all_pairs = []
-        for _, row in cross.iterrows():
-            combined = {}
-            # take all client features with "clientmts_" prefix
-            for col in df.columns:
-                if col.startswith("clientmts_"):
-                    combined[col] = row[f"{col}_client"] if f"{col}_client" in row else row[col]
-            # take all maid features with "maidmts_" or "maidpref_" prefix
-            for col in df.columns:
-                if col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_"):
-                    combined[col] = row[f"{col}_maid"] if f"{col}_maid" in row else row[col]
-    
-            score = calculate_row_score(combined)
-            all_pairs.append({
-                "client_name": row["client_name_client"],
-                "maid_id": row["maid_id_maid"],
-                "match_score": score,
-                "match_score_pct": score * 100,
-                "combined": combined
-            })
-    
-        return pd.DataFrame(all_pairs)
-    
-    pairwise_df = compute_global_matches(df)
-    
-    # Best maid per client
-    best_client_df = pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
-    st.dataframe(best_client_df[["client_name", "maid_id", "match_score_pct"]])
     
     # -------------------------------
-    # Explanation for best matches
+    # Tab 2: Best Maid per Client (Global Search Across All Maids)
     # -------------------------------
-    st.subheader("Explain a Best Match (Global Search)")
+    with tab2:
+        st.subheader("Best Maid per Client (Global Search Across All Maids)")
     
-    client_sel = st.selectbox("Choose Client", best_client_df["client_name"].unique())
-    best_row = best_client_df[best_client_df["client_name"] == client_sel].iloc[0]
+        @st.cache_data
+        def compute_global_matches(df):
+            # Unique profiles
+            clients_df = df.drop_duplicates(subset=["client_name"]).copy()
+            maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
     
-    st.write(f"**Best Maid:** {best_row['maid_id']}  \n**Match Score:** {best_row['match_score_pct']:.1f}%")
+            # Add key for cross join
+            clients_df["key"] = 1
+            maids_df["key"] = 1
     
-    explanations = explain_row_score(best_row["combined"])
+            # Cross join (client × maid)
+            cross = clients_df.merge(maids_df, on="key", suffixes=("_client", "_maid")).drop("key", axis=1)
     
-    with st.expander("Positive Matches"):
-        for r in explanations["positive"]:
-            st.write(f"- {r}")
+            # Compute scores
+            all_pairs = []
+            for _, row in cross.iterrows():
+                combined = {}
+                # take all client features with "clientmts_" prefix
+                for col in df.columns:
+                    if col.startswith("clientmts_"):
+                        combined[col] = row[f"{col}_client"] if f"{col}_client" in row else row[col]
+                # take all maid features with "maidmts_" or "maidpref_" prefix
+                for col in df.columns:
+                    if col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_"):
+                        combined[col] = row[f"{col}_maid"] if f"{col}_maid" in row else row[col]
     
-    with st.expander("Negative Mismatches"):
-        for r in explanations["negative"]:
-            st.write(f"- {r}")
+                score = calculate_row_score(combined)
+                all_pairs.append({
+                    "client_name": row["client_name_client"],
+                    "maid_id": row["maid_id_maid"],
+                    "match_score": score,
+                    "match_score_pct": score * 100,
+                    "combined": combined
+                })
     
-    with st.expander("Neutral Notes"):
-        for r in explanations["neutral"]:
-            st.write(f"- {r}")
+            return pd.DataFrame(all_pairs)
+    
+        pairwise_df = compute_global_matches(df)
+    
+        # Best maid per client
+        best_client_df = pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
+        st.dataframe(best_client_df[["client_name", "maid_id", "match_score_pct"]])
+    
+        # -------------------------------
+        # Explanation for best matches
+        # -------------------------------
+        st.subheader("Explain a Best Match (Global Search)")
+    
+        client_sel = st.selectbox("Choose Client", best_client_df["client_name"].unique())
+        best_row = best_client_df[best_client_df["client_name"] == client_sel].iloc[0]
+    
+        st.write(f"**Best Maid:** {best_row['maid_id']}  \n**Match Score:** {best_row['match_score_pct']:.1f}%")
+    
+        explanations = explain_row_score(best_row["combined"])
+    
+        with st.expander("Positive Matches"):
+            for r in explanations["positive"]:
+                st.write(f"- {r}")
+    
+        with st.expander("Negative Mismatches"):
+            for r in explanations["negative"]:
+                st.write(f"- {r}")
+    
+        with st.expander("Neutral Notes"):
+            for r in explanations["neutral"]:
+                st.write(f"- {r}")
