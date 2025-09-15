@@ -241,7 +241,11 @@ if uploaded_file:
     df["match_score_pct"] = df["match_score"] * 100
 
     # Tabs
-    tab1, tab2 = st.tabs(["All Match Scores (tagged pairs)", "Best Maid per Client (Global Search)"])
+    tab1, tab2, tab3 = st.tabs([
+        "All Match Scores (tagged pairs)", 
+        "Best Maid per Client (Global Search)", 
+        "Maid Profiles"
+    ])
 
     # -------------------------------
     # Tab 1: Tagged pairs
@@ -335,3 +339,28 @@ if uploaded_file:
         with st.expander("Neutral Notes"):
             for r in explanations["neutral"]:
                 st.write(f"- {r}")
+
+    # -------------------------------
+    # Tab 3: Maid Profiles
+    # -------------------------------
+    with tab3:
+        st.subheader("Maid Profiles")
+
+        # Get unique maid profiles
+        maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
+
+        # Show full searchable table
+        st.write("### All Maids (searchable table)")
+        maid_cols = [col for col in df.columns if col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_")]
+        st.dataframe(maids_df[["maid_id"] + maid_cols])
+
+        # Profile explorer
+        st.write("### Explore Individual Maid")
+        maid_sel = st.selectbox("Choose Maid ID", maids_df["maid_id"].unique())
+        maid_profile = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
+
+        st.markdown(f"**Maid ID:** {maid_sel}")
+        st.markdown("#### Matching Types & Preferences")
+        for col in maid_cols:
+            value = maid_profile[col]
+            st.write(f"- **{col}:** {value}")
