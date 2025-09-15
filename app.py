@@ -340,29 +340,33 @@ if uploaded_file:
             for r in explanations["neutral"]:
                 st.write(f"- {r}")
 
+
     # -------------------------------
     # Tab 3: Maid Profile Explorer
     # -------------------------------
     with tab3:
-        st.subheader("Maid Profile Explorer")
+        st.subheader("🧑‍💼 Maid Profile Explorer")
     
-        # Deduplicate maid rows
+        # Deduplicate by maid_id
         maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
         maids_df = maids_df.loc[:, ~maids_df.columns.duplicated()]
     
-        # Detect maid-related columns (excluding hiring artifacts)
-        maid_cols = [c for c in maids_df.columns 
-                     if (c.startswith("maidmts_") or c.startswith("maidpref_") or c.startswith("maid_")) 
-                     and not c.startswith("maid_mts_at_hiring")]
+        # Detect maid-related columns (exclude 'maidmts_at_hiring')
+        maid_cols = [
+            c for c in maids_df.columns
+            if (c.startswith("maidmts_") or c.startswith("maidpref_") or c.startswith("maid_"))
+            and c != "maidmts_at_hiring"
+        ]
     
-        # Add virtual grouping option
+        # Add virtual feature for engineered language columns
         group_options = maid_cols + ["maidspeaks_languages (engineered)"]
     
+        # Group Explorer
         st.markdown("### 📊 Group Maids by Feature")
         feature_choice = st.selectbox("Choose a feature to group by", group_options)
     
         if feature_choice == "maidspeaks_languages (engineered)":
-            # Map engineered columns into friendly labels
+            # Map engineered columns to nice labels
             language_map = {
                 "maidspeaks_amharic": "Amharic",
                 "maidspeaks_arabic": "Arabic",
@@ -371,25 +375,26 @@ if uploaded_file:
                 "maidspeaks_oromo": "Oromo",
             }
     
-            lang_groups = []
             for col, label in language_map.items():
-                maid_ids = maids_df.loc[maids_df[col] == 1, "maid_id"].tolist()
-                if maid_ids:  # only add if some maids have this language
-                    lang_groups.append({"Language": label, "maid_ids": maid_ids})
-    
-            lang_df = pd.DataFrame(lang_groups)
-            st.dataframe(lang_df, use_container_width=True)
+                maid_list = sorted(maids_df.loc[maids_df[col] == 1, "maid_id"].tolist())
+                if maid_list:  # only create expander if there are maids
+                    with st.expander(f"maid_speaks_language: {label}"):
+                        for mid in maid_list:
+                            if st.button(f"Maid {mid}", key=f"maid_{label}_{mid}"):
+                                maid_row = maids_df[maids_df["maid_id"] == mid].iloc[0]
+                                st.markdown(f"### 🆔 Maid {maid_row['maid_id']}")
+                                for c in maid_cols:
+                                    st.write(f"- **{c}**: {maid_row[c]}")
     
         elif feature_choice:
             grouped = maids_df.groupby(feature_choice)["maid_id"].apply(list).reset_index()
-            grouped.columns = [feature_choice, "maid_ids"]
-            st.dataframe(grouped, use_container_width=True)
     
-        # Maid profile explorer (stays as-is)
-        st.markdown("### 🧑‍ Maid Profile")
-        maid_sel = st.selectbox("Choose Maid", maids_df["maid_id"].unique())
-        maid_row = maids_df[maids_df["maid_id"] == maid_sel].iloc[0]
-    
-        st.write(f"**Maid ID:** {maid_row['maid_id']}")
-        for col in maid_cols:
-            st.write(f"- **{col}**: {maid_row[col]}")
+            for _, row in grouped.iterrows():
+                with st.expander(f"{feature_choice}: {row[feature_choice]}"):
+                    maid_list = sorted(row["maid_id"])
+                    for mid in maid_list:
+                        if st.button(f"Maid {mid}", key=f"maid_{feature_choice}_{mid}"):
+                            maid_row = maids_df[maids_df["maid_id"] == mid].iloc[0]
+                            st.markdown(f"### 🆔 Maid {maid_row['maid_id']}")
+                            for c in maid_cols:
+                                st.write(f"- **{c}**: {maid_row[c]}")
