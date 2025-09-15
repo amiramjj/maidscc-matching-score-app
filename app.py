@@ -250,6 +250,28 @@ if uploaded_file:
         st.subheader("All Match Scores (tagged pairs)")
         st.dataframe(df[["client_name", "maid_id", "match_score_pct"]])
 
+        # --- Explanation block for tagged pairs ---
+        st.subheader("Explain a Tagged Pair Match")
+        sel_idx = st.selectbox("Choose a row", df.index, format_func=lambda i: f"{df.loc[i,'client_name']} ↔ {df.loc[i,'maid_id']}")
+        sel_row = df.loc[sel_idx].to_dict()
+
+        st.write(f"**Client:** {sel_row['client_name']}  \n**Maid:** {sel_row['maid_id']}  \n**Score:** {sel_row['match_score_pct']:.1f}%")
+
+        explanations = explain_row_score(sel_row)
+
+        with st.expander("Positive Matches"):
+            for r in explanations["positive"]:
+                st.write(f"- {r}")
+
+        with st.expander("Negative Mismatches"):
+            for r in explanations["negative"]:
+                st.write(f"- {r}")
+
+        with st.expander("Neutral Notes"):
+            for r in explanations["neutral"]:
+                st.write(f"- {r}")
+
+
     # -------------------------------
     # Tab 2: Best Maid per Client (Global Search)
     # -------------------------------
