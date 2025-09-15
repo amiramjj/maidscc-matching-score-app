@@ -246,32 +246,38 @@ if uploaded_file:
         def compute_best_matches(df):
             clients_df = df.drop_duplicates(subset=["client_name"]).copy()
             maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
-
+        
             best_matches = []
-            for _, client in clients_df.iterrows():
-                client_dict = client.to_dict()
+        
+            for _, client_row in clients_df.iterrows():
                 best_score = -1
                 best_maid = None
                 best_combined = None
-
-                for _, maid in maids_df.iterrows():
-                    maid_dict = maid.to_dict()
-                    combined = {**client_dict, **maid_dict}
+        
+                for _, maid_row in maids_df.iterrows():
+                    # Build a combined row: clientmts_* from client, maidmts_/maidpref_ from maid
+                    combined = {}
+                    for col in df.columns:
+                        if col.startswith("clientmts_"):
+                            combined[col] = client_row[col]
+                        elif col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_"):
+                            combined[col] = maid_row[col]
+        
                     score = calculate_row_score(combined)
-
                     if score > best_score:
                         best_score = score
-                        best_maid = maid["maid_id"]
+                        best_maid = maid_row["maid_id"]
                         best_combined = combined
-
+        
                 best_matches.append({
-                    "client_name": client["client_name"],
+                    "client_name": client_row["client_name"],
                     "best_maid_id": best_maid,
                     "match_score_pct": best_score * 100,
                     "combined": best_combined
                 })
-
+        
             return pd.DataFrame(best_matches)
+
 
         best_client_df = compute_best_matches(df)
         st.dataframe(best_client_df[["client_name", "best_maid_id", "match_score_pct"]])
