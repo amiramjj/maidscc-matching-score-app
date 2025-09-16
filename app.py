@@ -471,4 +471,5 @@ if uploaded_file:
             Over half of today’s placements sit in the lowest quality bracket (10–20%). 
             With algorithmic matching, the entire curve shifts upward — systematically moving clients out of bad-fit placements and into stronger alignments. 
             This isn’t about fixing one or two mismatches. The *entire distribution* improves, transforming placements into a reliable, scalable system.
+            """
         )
