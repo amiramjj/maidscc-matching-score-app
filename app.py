@@ -424,7 +424,7 @@ if uploaded_file:
         # -------------------------------
         # Distribution Visualization
         # -------------------------------
-        st.markdown("### Distribution of Match Scores")
+        st.markdown("### 🔍 Distribution of Match Scores")
 
         import plotly.express as px
         import numpy as np
@@ -448,7 +448,7 @@ if uploaded_file:
             .size()
             .reset_index(name="count")
         )
-        grouped["percent"] = grouped.groupby("type")["count"].apply(lambda x: x / x.sum() * 100)
+        grouped["percent"] = grouped.groupby("type")["count"].transform(lambda x: x / x.sum() * 100)
 
         # Grouped bar chart
         fig = px.bar(
