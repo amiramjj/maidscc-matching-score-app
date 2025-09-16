@@ -420,11 +420,11 @@ if uploaded_file:
         with col3:
             st.metric("Improvement", f"{delta:+.1f}%")
             st.caption("Even a small lift is massive at scale: a 3.7% gain means fewer replacements, higher client satisfaction, and measurable savings across the ERP system.")
-    
+
         # -------------------------------
         # Distribution Visualization
         # -------------------------------
-        st.markdown("### 🔍 Distribution of Match Scores")
+        st.markdown("### Distribution of Match Scores")
 
         import plotly.express as px
         import numpy as np
@@ -460,6 +460,10 @@ if uploaded_file:
             y="percent",
             color="type",
             barmode="group",
+            color_discrete_map={
+                "Tagged": "#1f77b4",  # darker blue
+                "Best": "#6baed6"     # lighter blue
+            },
             labels={"bin": "Match Score Range (%)", "percent": "Percentage of Clients", "type": "Group"},
             title="Score Distribution: Tagged vs. Best Matches"
         )
@@ -468,10 +472,8 @@ if uploaded_file:
 
         st.caption(
             """
-            - Most placements cluster in the **10–20% match range**, but many of these cases come from clients who **provided no preferences or matching types**. In other words, the system had little to work with.  
-
-            - When preferences are specified and data-driven matching is applied, the distribution shifts significantly to the right. This means fewer clients stuck in low-fit assignments, and more moving into stronger alignment bands.  
-
+            - Most placements cluster in the **10–20% match range**, but many of these cases come from clients who **provided no preferences or matching types**. In other words, the system had little to work with
+            - When preferences are specified and data-driven matching is applied, the distribution shifts significantly to the right. This means fewer clients stuck in low-fit assignments, and more moving into stronger alignment bands.
             - The message is clear: **better input leads to better outcomes**. By capturing and leveraging client preferences systematically, we unlock portfolio-wide improvements in satisfaction, retention, and efficiency.
             """
         )
@@ -526,7 +528,7 @@ if uploaded_file:
                 "best_score": "Best"
             })
 
-            # Plot with consistent colors (same as distribution chart)
+            # Plot with consistent blue shades
             fig3 = px.bar(
                 agg_melted,
                 x="feature",
@@ -534,8 +536,8 @@ if uploaded_file:
                 color="type",
                 barmode="group",
                 color_discrete_map={
-                    "Tagged": "#636EFA",  # same as Plotly default blue
-                    "Best": "#EF553B"    # same as Plotly default red
+                    "Tagged": "#1f77b4",  # same darker blue
+                    "Best": "#6baed6"     # same lighter blue
                 },
                 labels={
                     "feature": feature_choice,
@@ -550,9 +552,9 @@ if uploaded_file:
 
             st.caption(
                 f"""
-                This diagnostic slice shows how **{feature_choice}** influences matching outcomes:
-                - **Tagged assignments** reveal current gaps.
-                - **Best matches** illustrate how algorithmic matching improves alignment.
+                This diagnostic slice shows how **{feature_choice}** influences outcomes:
+                - **Tagged assignments** reveal current gaps.  
+                - **Best matches** illustrate how algorithmic matching improves alignment.  
                 - When values are 'unspecified' or 'any', scores tend to be lower — reinforcing that **better input yields better matches**.
                 """
             )
