@@ -346,7 +346,7 @@ if uploaded_file:
     # Tab 3: Maid Profile Explorer
     # -------------------------------
     with tab3:
-        st.subheader("🧑‍💼 Maid Profile Explorer")
+        st.subheader("Maid Profile Explorer")
     
         # Deduplicate by maid_id
         maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
@@ -363,7 +363,7 @@ if uploaded_file:
         lang_cols = [c for c in maids_df.columns if c.startswith("maidspeaks_")]
     
         # Group Explorer
-        st.markdown("### 📊 Group Maids by Feature")
+        st.markdown("### Group Maids by Feature")
     
         feature_choice = st.selectbox(
             "Choose a feature to group by",
@@ -380,7 +380,7 @@ if uploaded_file:
                     for mid in sorted(maid_ids):
                         if st.button(f"Maid {mid}", key=f"maid_lang_{lang_name}_{mid}"):
                             maid_row = maids_df[maids_df["maid_id"] == mid].iloc[0]
-                            st.markdown(f"### 🆔 Maid {maid_row['maid_id']}")
+                            st.markdown(f"### Maid {maid_row['maid_id']}")
                             for col in maid_cols + lang_cols:
                                 st.write(f"- **{col}**: {maid_row[col]}")
         else:
