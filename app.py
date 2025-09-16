@@ -400,7 +400,7 @@ if uploaded_file:
     # Tab 4: Summary Metrics
     # -------------------------------
     with tab4:
-        st.subheader("📊 Summary Metrics")
+        st.subheader(" Summary Metrics")
     
         # Compute averages
         avg_tagged = df["match_score_pct"].mean()
@@ -424,9 +424,10 @@ if uploaded_file:
         # -------------------------------
         # Distribution Visualization
         # -------------------------------
-        st.markdown("### 🔍 Distribution of Match Scores")
+        st.markdown("### Distribution of Match Scores")
 
         import plotly.express as px
+        import numpy as np
 
         # Prepare data for plotting
         tagged_scores = df[["match_score_pct"]].copy()
@@ -437,26 +438,36 @@ if uploaded_file:
 
         dist_data = pd.concat([tagged_scores, best_scores], ignore_index=True)
 
-        # Histogram with density curves
-        fig = px.histogram(
-            dist_data,
-            x="match_score_pct",
+        # Define bins (0–100 in steps of 10)
+        bins = np.arange(0, 110, 10)
+        dist_data["bin"] = pd.cut(dist_data["match_score_pct"], bins=bins, right=False)
+
+        # Count % per bin
+        grouped = (
+            dist_data.groupby(["bin", "type"])
+            .size()
+            .reset_index(name="count")
+        )
+        grouped["percent"] = grouped.groupby("type")["count"].apply(lambda x: x / x.sum() * 100)
+
+        # Grouped bar chart
+        fig = px.bar(
+            grouped,
+            x="bin",
+            y="percent",
             color="type",
-            nbins=20,
-            marginal="box",  # adds small boxplot
-            barmode="overlay",
-            opacity=0.6,
-            labels={"match_score_pct": "Match Score (%)", "type": "Group"},
-            title="Distribution of Tagged vs. Best Match Scores"
+            barmode="group",
+            labels={"bin": "Match Score Range (%)", "percent": "Percentage of Clients", "type": "Group"},
+            title="Score Distribution: Tagged vs. Best Matches"
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown(
             """
-            The distribution tells the story at a glance:
-            - **Tagged matches** are skewed toward the lower end — many clients are under-served today.
-            - **Best matches** shift the curve to the right, clustering closer to high scores.
-            - This shift shows the systemic value of algorithmic matching: not just individual improvements, but a healthier portfolio overall.
+            This grouped bar chart makes the shift crystal clear:
+            - **Tagged matches** are over-represented in the lower score ranges.
+            - **Best matches** consistently dominate the higher brackets.
+            - The reallocation effect is visible: clients are lifted from weak-fit buckets into stronger alignment.
             """
         )
