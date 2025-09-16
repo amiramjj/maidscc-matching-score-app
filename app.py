@@ -476,6 +476,7 @@ if uploaded_file:
             """
         )
 
+
         # -------------------------------
         # Diagnostic Slice: Compare Tagged vs Best by Feature
         # -------------------------------
@@ -501,7 +502,7 @@ if uploaded_file:
             )
             diag_best.rename(columns={"match_score_pct": "best_score"}, inplace=True)
 
-            # Aggregate
+            # Aggregate averages
             agg = (
                 diag_df.groupby("feature")["tagged_score"].mean().reset_index()
                 .merge(
@@ -532,12 +533,13 @@ if uploaded_file:
                 y="avg_score",
                 color="type",
                 barmode="group",
+                color_discrete_map={"Tagged": "#EF553B", "Best": "#00CC96"},  # fixed colors
                 labels={
-                    "feature": feature_choice,
+                    "feature": feature_choice.replace("clientmts_", "").replace("_", " ").title(),
                     "avg_score": "Average Match Score (%)",
                     "type": "Group"
                 },
-                title=f"Average Match Scores by {feature_choice}"
+                title=f"Average Match Scores by {feature_choice.replace('clientmts_', '').replace('_', ' ').title()}"
             )
             fig3.update_yaxes(range=[0, 100])
 
@@ -545,9 +547,11 @@ if uploaded_file:
 
             st.caption(
                 f"""
-                This diagnostic slice shows how **{feature_choice}** influences matching outcomes:
-                - **Tagged assignments** reveal current gaps.
-                - **Best matches** illustrate how algorithmic matching improves alignment.
-                - When values are 'unspecified' or 'any', scores tend to be lower — reinforcing that **better input yields better matches**.
+                This diagnostic slice shows how **{feature_choice.replace('clientmts_', '').replace('_', ' ').title()}**
+                influences matching outcomes:
+
+                - **Tagged assignments** reveal the baseline of how matches are being made today.  
+                - **Best matches** highlight the improvement potential if algorithmic pairing is applied.  
+                - Unspecific or 'any' inputs drag down scores — reinforcing that **better input leads to better matches**.
                 """
             )
