@@ -468,9 +468,7 @@ if uploaded_file:
 
         st.markdown(
             """
-            This grouped bar chart makes the shift crystal clear:
-            - **Tagged matches** are over-represented in the lower score ranges.
-            - **Best matches** consistently dominate the higher brackets.
-            - The reallocation effect is visible: clients are lifted from weak-fit buckets into stronger alignment.
-            """
+            Over half of today’s placements sit in the lowest quality bracket (10–20%). 
+            With algorithmic matching, the entire curve shifts upward — systematically moving clients out of bad-fit placements and into stronger alignments. 
+            This isn’t about fixing one or two mismatches. The *entire distribution* improves, transforming placements into a reliable, scalable system.
         )
