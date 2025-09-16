@@ -398,47 +398,28 @@ if uploaded_file:
     # -------------------------------
     # Tab 4: Summary Metrics
     # -------------------------------
-    tab4 = st.container()
-    with tab4:
-        st.subheader(" Summary Metrics")
-
-        # --- 1. Tagged pairs average ---
+    with st.tab("Summary Metrics"):
+        st.subheader(" Matching Score Summary")
+    
+        # Average score for tagged pairs
         avg_tagged = df["match_score"].mean() * 100
-
-        # --- 2. Best maid per client (reuse computation) ---
-        @st.cache_data
-        def compute_best_matches(df):
-            clients_df = df.drop_duplicates(subset=["client_name"]).copy()
-            maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
-            clients_df["key"] = 1
-            maids_df["key"] = 1
-            cross = clients_df.merge(maids_df, on="key", suffixes=("_client", "_maid")).drop("key", axis=1)
-
-            all_pairs = []
-            for _, row in cross.iterrows():
-                combined = {}
-                for col in df.columns:
-                    if col.startswith("clientmts_"):
-                        combined[col] = row.get(f"{col}_client", row.get(col))
-                    if col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_"):
-                        combined[col] = row.get(f"{col}_maid", row.get(col))
-
-                score = calculate_row_score(combined)
-                all_pairs.append({
-                    "client_name": row["client_name_client"],
-                    "maid_id": row["maid_id_maid"],
-                    "match_score": score
-                })
-
-            pairwise_df = pd.DataFrame(all_pairs)
-            return pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
-
-        best_client_df = compute_best_matches(df)
+    
+        # Average score for best maid per client (already computed)
         avg_best = best_client_df["match_score"].mean() * 100
-
-        # --- Display metrics side by side ---
+    
+        # Count how many clients improved with global search
+        merged = df.groupby("client_name")["match_score"].max().reset_index(name="tagged_best")
+        merged = merged.merge(best_client_df[["client_name", "match_score"]], on="client_name", suffixes=("_tagged", "_best"))
+        improved_clients = (merged["match_score_best"] > merged["tagged_best"]).sum()
+        total_clients = merged.shape[0]
+    
+        # Display metrics
         col1, col2, col3 = st.columns(3)
-        col1.metric("Avg Tagged Match Score", f"{avg_tagged:.1f}%")
-        col2.metric("Avg Best Possible Match Score", f"{avg_best:.1f}%")
-        col3.metric("Improvement", f"{(avg_best - avg_tagged):.1f}%", 
-                    delta=f"{(avg_best - avg_tagged):.1f}%", delta_color="normal")
+        col1.metric("Avg Tagged Match %", f"{avg_tagged:.1f}%")
+        col2.metric("Avg Best Maid Match %", f"{avg_best:.1f}%")
+        col3.metric("Clients Improved", f"{improved_clients}/{total_clients}")
+    
+        # Optional: show table of clients where the best maid differs from the tagged maid
+        st.markdown("### Clients With Improved Match")
+        improved_df = merged[merged["match_score_best"] > merged["tagged_best"]]
+        st.dataframe(improved_df)
