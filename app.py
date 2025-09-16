@@ -450,6 +450,9 @@ if uploaded_file:
         )
         grouped["percent"] = grouped.groupby("type")["count"].transform(lambda x: x / x.sum() * 100)
 
+        # Convert Interval objects to string labels for plotting
+        grouped["bin"] = grouped["bin"].astype(str)
+
         # Grouped bar chart
         fig = px.bar(
             grouped,
