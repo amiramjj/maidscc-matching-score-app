@@ -466,12 +466,12 @@ if uploaded_file:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown(
+        st.caption(
             """
-            Most placements cluster in the **10–20% match range**, but many of these cases come from clients who **provided no preferences or matching types**. In other words, the system had little to work with.  
+            - Most placements cluster in the **10–20% match range**, but many of these cases come from clients who **provided no preferences or matching types**. In other words, the system had little to work with.  
 
-            When preferences are specified and data-driven matching is applied, the distribution shifts significantly to the right. This means fewer clients stuck in low-fit assignments, and more moving into stronger alignment bands.  
+            - When preferences are specified and data-driven matching is applied, the distribution shifts significantly to the right. This means fewer clients stuck in low-fit assignments, and more moving into stronger alignment bands.  
 
-            The message is clear: **better input leads to better outcomes**. By capturing and leveraging client preferences systematically, we unlock portfolio-wide improvements in satisfaction, retention, and efficiency.
+            - The message is clear: **better input leads to better outcomes**. By capturing and leveraging client preferences systematically, we unlock portfolio-wide improvements in satisfaction, retention, and efficiency.
             """
         )
