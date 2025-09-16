@@ -475,3 +475,79 @@ if uploaded_file:
             - The message is clear: **better input leads to better outcomes**. By capturing and leveraging client preferences systematically, we unlock portfolio-wide improvements in satisfaction, retention, and efficiency.
             """
         )
+
+        # -------------------------------
+        # Diagnostic Slice: Compare Tagged vs Best by Feature
+        # -------------------------------
+        st.markdown("### 🔎 Diagnostic Slice: Compare Tagged vs Best by Feature")
+
+        # Pick a feature dynamically
+        client_features = [c for c in df.columns if c.startswith("clientmts_")]
+        feature_choice = st.selectbox("Choose a client feature to slice by", client_features)
+
+        if feature_choice:
+            # Prepare tagged scores
+            diag_df = pd.DataFrame({
+                "feature": df[feature_choice],
+                "tagged_score": df["match_score_pct"],
+                "client_name": df["client_name"]
+            })
+
+            # Best scores merged with feature
+            diag_best = best_client_df[["client_name", "match_score_pct"]].merge(
+                df[["client_name", feature_choice]],
+                on="client_name",
+                how="left"
+            )
+            diag_best.rename(columns={"match_score_pct": "best_score"}, inplace=True)
+
+            # Aggregate
+            agg = (
+                diag_df.groupby("feature")["tagged_score"].mean().reset_index()
+                .merge(
+                    diag_best.groupby(feature_choice)["best_score"].mean().reset_index(),
+                    left_on="feature",
+                    right_on=feature_choice,
+                    how="outer"
+                )
+            )
+            agg = agg.drop(columns=[feature_choice])
+
+            # Melt for plotting
+            agg_melted = agg.melt(
+                id_vars="feature",
+                value_vars=["tagged_score", "best_score"],
+                var_name="type",
+                value_name="avg_score"
+            )
+            agg_melted["type"] = agg_melted["type"].map({
+                "tagged_score": "Tagged",
+                "best_score": "Best"
+            })
+
+            # Plot
+            fig3 = px.bar(
+                agg_melted,
+                x="feature",
+                y="avg_score",
+                color="type",
+                barmode="group",
+                labels={
+                    "feature": feature_choice,
+                    "avg_score": "Average Match Score (%)",
+                    "type": "Group"
+                },
+                title=f"Average Match Scores by {feature_choice}"
+            )
+            fig3.update_yaxes(range=[0, 100])
+
+            st.plotly_chart(fig3, use_container_width=True)
+
+            st.caption(
+                f"""
+                This diagnostic slice shows how **{feature_choice}** influences matching outcomes:
+                - **Tagged assignments** reveal current gaps.
+                - **Best matches** illustrate how algorithmic matching improves alignment.
+                - When values are 'unspecified' or 'any', scores tend to be lower — reinforcing that **better input yields better matches**.
+                """
+            )
