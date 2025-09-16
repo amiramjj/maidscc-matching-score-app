@@ -421,14 +421,42 @@ if uploaded_file:
             st.metric("Improvement", f"{delta:+.1f}%")
             st.caption("Even a small lift is massive at scale: a 3.7% gain means fewer replacements, higher client satisfaction, and measurable savings across the ERP system.")
     
-        st.markdown("---")
-        st.markdown(
-            """
-            Together, these metrics reveal the **efficiency gap**:
-            - **Tagged matches** expose the current baseline.
-            - **Best matches** set the vision for optimized alignment.
-            - **Improvement** quantifies the business case for scaling data-driven matching.
-            """
+        # -------------------------------
+        # Distribution Visualization
+        # -------------------------------
+        st.markdown("### 🔍 Distribution of Match Scores")
+
+        import plotly.express as px
+
+        # Prepare data for plotting
+        tagged_scores = df[["match_score_pct"]].copy()
+        tagged_scores["type"] = "Tagged"
+
+        best_scores = best_client_df[["match_score_pct"]].copy()
+        best_scores["type"] = "Best"
+
+        dist_data = pd.concat([tagged_scores, best_scores], ignore_index=True)
+
+        # Histogram with density curves
+        fig = px.histogram(
+            dist_data,
+            x="match_score_pct",
+            color="type",
+            nbins=20,
+            marginal="box",  # adds small boxplot
+            barmode="overlay",
+            opacity=0.6,
+            labels={"match_score_pct": "Match Score (%)", "type": "Group"},
+            title="Distribution of Tagged vs. Best Match Scores"
         )
 
-      
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown(
+            """
+            The distribution tells the story at a glance:
+            - **Tagged matches** are skewed toward the lower end — many clients are under-served today.
+            - **Best matches** shift the curve to the right, clustering closer to high scores.
+            - This shift shows the systemic value of algorithmic matching: not just individual improvements, but a healthier portfolio overall.
+            """
+        )
