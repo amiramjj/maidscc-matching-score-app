@@ -400,34 +400,27 @@ if uploaded_file:
     # Tab 4: Summary Metrics
     # -------------------------------
     with tab4:
-        st.subheader("📊 Matching Score Summary")
-    
-        # Average score for tagged pairs
-        avg_tagged = df["match_score"].mean() * 100
-    
-        # Average score for best maid per client (already computed earlier)
-        avg_best = best_client_df["match_score"].mean() * 100
-    
-        # Compare tagged vs best per client
-        merged = df.groupby("client_name")["match_score"].max().reset_index(name="tagged_best")
-        merged = merged.merge(
-            best_client_df[["client_name", "match_score"]],
-            on="client_name",
-            suffixes=("_tagged", "_best")
+        st.subheader("📊 Summary Metrics")
+
+        # Compute averages
+        avg_tagged = df["match_score_pct"].mean()
+        avg_best = best_client_df["match_score_pct"].mean()
+        delta = avg_best - avg_tagged
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Avg Tagged Match Score", f"{avg_tagged:.1f}%")
+        with col2:
+            st.metric("Avg Best Match Score", f"{avg_best:.1f}%")
+        with col3:
+            st.metric("Improvement", f"{delta:+.1f}%")
+
+        st.markdown(
+            """
+            These metrics highlight the overall efficiency gap:
+            - **Tagged matches** show the quality of current assignments.
+            - **Best matches** represent the optimal alignment if each client were paired with their highest-scoring maid.
+            - **Improvement** quantifies the opportunity gain from shifting toward data-driven matching.
+            """
         )
-    
-        improved_clients = (merged["match_score_best"] > merged["tagged_best"]).sum()
-        total_clients = merged.shape[0]
-        avg_gain = (merged["match_score_best"] - merged["tagged_best"]).mean() * 100
-    
-        # Show headline metrics
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Avg Tagged Match %", f"{avg_tagged:.1f}%")
-        col2.metric("Avg Best Maid Match %", f"{avg_best:.1f}%")
-        col3.metric("Clients Improved", f"{improved_clients}/{total_clients}")
-        col4.metric("Avg Gain (pp)", f"{avg_gain:.1f}")
-    
-        # Show details for improved clients
-        st.markdown("### Clients With Improved Matches")
-        improved_df = merged[merged["match_score_best"] > merged["tagged_best"]]
-        st.dataframe(improved_df, use_container_width=True)
