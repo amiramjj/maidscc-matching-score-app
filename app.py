@@ -560,3 +560,63 @@ if uploaded_file:
                 - When values are 'unspecified' or 'any', scores tend to be lower — reinforcing that **better input yields better matches**.
                 """
             )
+
+    # -------------------------------
+    # Client Drilldown: Tagged vs Best
+    # -------------------------------
+    st.markdown("### 👥 Client Drilldown: Tagged vs Best Match")
+
+    # Select a client
+    drill_client = st.selectbox("Choose a client to compare", df["client_name"].unique())
+
+    # Get tagged row for this client
+    tagged_row = df[df["client_name"] == drill_client].iloc[0]
+
+    # Get best row for this client
+    best_row = best_client_df[best_client_df["client_name"] == drill_client].iloc[0]
+
+    col1, col2 = st.columns(2)
+
+    # --- Tagged Maid ---
+    with col1:
+        st.subheader("Tagged Maid")
+        st.write(f"**Maid:** {tagged_row['maid_id']}")
+        st.write(f"**Match Score:** {tagged_row['match_score_pct']:.1f}%")
+        explanations_tagged = explain_row_score(tagged_row.to_dict())
+
+        with st.expander("Positive Matches"):
+            for r in explanations_tagged["positive"]:
+                st.write(f"- {r}")
+        with st.expander("Negative Mismatches"):
+            for r in explanations_tagged["negative"]:
+                st.write(f"- {r}")
+        with st.expander("Neutral Notes"):
+            for r in explanations_tagged["neutral"]:
+                st.write(f"- {r}")
+
+    # --- Best Maid ---
+    with col2:
+        st.subheader("Best Maid (Global Search)")
+        st.write(f"**Maid:** {best_row['best_maid_id']}")
+        st.write(f"**Match Score:** {best_row['match_score_pct']:.1f}%")
+        explanations_best = explain_row_score(best_row["combined"])
+
+        with st.expander("Positive Matches"):
+            for r in explanations_best["positive"]:
+                st.write(f"- {r}")
+        with st.expander("Negative Mismatches"):
+            for r in explanations_best["negative"]:
+                st.write(f"- {r}")
+        with st.expander("Neutral Notes"):
+            for r in explanations_best["neutral"]:
+                st.write(f"- {r}")
+
+    # Caption for context
+    st.caption(
+        """
+        This drilldown highlights the **efficiency gap at the client level**:
+        - **Tagged maid** shows the current placement, often suboptimal.  
+        - **Best maid** represents the algorithmic optimum, with higher alignment.  
+        - The side-by-side view makes it easy to see *what exactly drives the difference*.
+        """
+    )
