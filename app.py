@@ -241,10 +241,10 @@ if uploaded_file:
     df["match_score_pct"] = df["match_score"] * 100
 
     # Tabs
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "All Match Scores (tagged pairs)", 
         "Best Maid per Client (Global Search)", 
-        "Maid Profiles"
+        "Maid Profiles","Summary Metrics"
     ])
 
     # -------------------------------
@@ -394,3 +394,51 @@ if uploaded_file:
                             st.markdown(f"### Maid {maid_row['maid_id']}")
                             for col in maid_cols + lang_cols:
                                 st.write(f"- **{col}**: {maid_row[col]}")
+
+    # -------------------------------
+    # Tab 4: Summary Metrics
+    # -------------------------------
+    tab4 = st.container()
+    with tab4:
+        st.subheader(" Summary Metrics")
+
+        # --- 1. Tagged pairs average ---
+        avg_tagged = df["match_score"].mean() * 100
+
+        # --- 2. Best maid per client (reuse computation) ---
+        @st.cache_data
+        def compute_best_matches(df):
+            clients_df = df.drop_duplicates(subset=["client_name"]).copy()
+            maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
+            clients_df["key"] = 1
+            maids_df["key"] = 1
+            cross = clients_df.merge(maids_df, on="key", suffixes=("_client", "_maid")).drop("key", axis=1)
+
+            all_pairs = []
+            for _, row in cross.iterrows():
+                combined = {}
+                for col in df.columns:
+                    if col.startswith("clientmts_"):
+                        combined[col] = row.get(f"{col}_client", row.get(col))
+                    if col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_"):
+                        combined[col] = row.get(f"{col}_maid", row.get(col))
+
+                score = calculate_row_score(combined)
+                all_pairs.append({
+                    "client_name": row["client_name_client"],
+                    "maid_id": row["maid_id_maid"],
+                    "match_score": score
+                })
+
+            pairwise_df = pd.DataFrame(all_pairs)
+            return pairwise_df.loc[pairwise_df.groupby("client_name")["match_score"].idxmax()]
+
+        best_client_df = compute_best_matches(df)
+        avg_best = best_client_df["match_score"].mean() * 100
+
+        # --- Display metrics side by side ---
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Avg Tagged Match Score", f"{avg_tagged:.1f}%")
+        col2.metric("Avg Best Possible Match Score", f"{avg_best:.1f}%")
+        col3.metric("Improvement", f"{(avg_best - avg_tagged):.1f}%", 
+                    delta=f"{(avg_best - avg_tagged):.1f}%", delta_color="normal")
