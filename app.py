@@ -526,23 +526,26 @@ if uploaded_file:
                 "best_score": "Best"
             })
 
-            # Plot
+            # Plot with fixed colors for consistency
             fig3 = px.bar(
                 agg_melted,
                 x="feature",
                 y="avg_score",
                 color="type",
                 barmode="group",
-                color_discrete_map={"Tagged": "#EF553B", "Best": "#00CC96"},  # fixed colors
                 labels={
-                    "feature": feature_choice.replace("clientmts_", "").replace("_", " ").title(),
+                    "feature": feature_choice,
                     "avg_score": "Average Match Score (%)",
                     "type": "Group"
                 },
-                title=f"Average Match Scores by {feature_choice.replace('clientmts_', '').replace('_', ' ').title()}"
+                title=f"Average Match Scores by {feature_choice}",
+                color_discrete_map={
+                    "Best": "#66c2ff",   # light blue
+                    "Tagged": "#1f77b4"  # darker blue
+                }
             )
             fig3.update_yaxes(range=[0, 100])
-
+            
             st.plotly_chart(fig3, use_container_width=True)
 
             st.caption(
