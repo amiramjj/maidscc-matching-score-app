@@ -468,8 +468,10 @@ if uploaded_file:
 
         st.markdown(
             """
-            Over half of today’s placements sit in the lowest quality bracket (10–20%). 
-            With algorithmic matching, the entire curve shifts upward — systematically moving clients out of bad-fit placements and into stronger alignments. 
-            This isn’t about fixing one or two mismatches. The *entire distribution* improves, transforming placements into a reliable, scalable system.
+            Most placements cluster in the **10–20% match range**, but many of these cases come from clients who **provided no preferences or matching types**. In other words, the system had little to work with.  
+
+            When preferences are specified and data-driven matching is applied, the distribution shifts significantly to the right. This means fewer clients stuck in low-fit assignments, and more moving into stronger alignment bands.  
+
+            The message is clear: **better input leads to better outcomes**. By capturing and leveraging client preferences systematically, we unlock portfolio-wide improvements in satisfaction, retention, and efficiency.
             """
         )
