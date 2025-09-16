@@ -464,6 +464,7 @@ if uploaded_file:
                 "Tagged": "#1f77b4",  # darker blue
                 "Best": "#6baed6"     # lighter blue
             },
+            category_orders={"type": ["Tagged", "Best"]},  # force order
             labels={"bin": "Match Score Range (%)", "percent": "Percentage of Clients", "type": "Group"},
             title="Score Distribution: Tagged vs. Best Matches"
         )
@@ -528,7 +529,7 @@ if uploaded_file:
                 "best_score": "Best"
             })
 
-            # Plot with consistent blue shades
+            # Plot with consistent blue shades # Diagnostic slice chart
             fig3 = px.bar(
                 agg_melted,
                 x="feature",
@@ -536,9 +537,10 @@ if uploaded_file:
                 color="type",
                 barmode="group",
                 color_discrete_map={
-                    "Tagged": "#1f77b4",  # same darker blue
-                    "Best": "#6baed6"     # same lighter blue
+                    "Tagged": "#1f77b4",
+                    "Best": "#6baed6"
                 },
+                category_orders={"type": ["Tagged", "Best"]},  # force order
                 labels={
                     "feature": feature_choice,
                     "avg_score": "Average Match Score (%)",
