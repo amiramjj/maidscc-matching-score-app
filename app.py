@@ -341,7 +341,6 @@ if uploaded_file:
                 st.write(f"- {r}")
 
 
-
     # -------------------------------
     # Tab 3: Maid Profile Explorer
     # -------------------------------
@@ -359,49 +358,39 @@ if uploaded_file:
             and c != "maidmts_at_hiring"
         ]
     
-        # --- Handle language columns ---
-        language_cols = [
-            "maidspeaks_amharic",
-            "maidspeaks_arabic",
-            "maidspeaks_english",
-            "maidspeaks_french",
-            "maidspeaks_oromo"
-        ]
+        # Detect engineered language columns
+        lang_cols = [c for c in maids_df.columns if c.startswith("maidspeaks_")]
     
-        # Create a combined column for profile display
-        def combine_languages(row):
-            langs = []
-            if row["maidspeaks_amharic"] == 1: langs.append("Amharic")
-            if row["maidspeaks_arabic"] == 1: langs.append("Arabic")
-            if row["maidspeaks_english"] == 1: langs.append("English")
-            if row["maidspeaks_french"] == 1: langs.append("French")
-            if row["maidspeaks_oromo"] == 1: langs.append("Oromo")
-            return ", ".join(langs) if langs else "Unspecified"
-    
-        maids_df["maid_speaks_language"] = maids_df.apply(combine_languages, axis=1)
-    
-        # Add the synthetic combined column for profile
-        maid_cols.append("maid_speaks_language")
-     
         # Group Explorer
-    st.markdown("### 📊 Group Maids by Feature")
-
-    # For grouping, use original maid_cols + the individual language flags
-    feature_choice = st.selectbox(
-        "Choose a feature to group by",
-        maid_cols + language_cols
-    )
-
-    if feature_choice:
-        grouped = maids_df.groupby(feature_choice)["maid_id"].apply(list).reset_index()
-
-        for _, row in grouped.iterrows():
-            with st.expander(f"{feature_choice}: {row[feature_choice]}"):
-                maid_list = sorted(row["maid_id"])
-                for mid in maid_list:
-                    if st.button(f"Maid {mid}", key=f"maid_{feature_choice}_{mid}"):
-                        maid_row = maids_df[maids_df["maid_id"] == mid].iloc[0]
-
-                        st.markdown(f"### 🆔 Maid {maid_row['maid_id']}")
-                        for col in maid_cols:
-                            st.write(f"- **{col}**: {maid_row[col]}")
+        st.markdown("### Group Maids by Feature")
+    
+        feature_choice = st.selectbox(
+            "Choose a feature to group by",
+            maid_cols + ["maid_speaks_language"]  # add a synthetic option for languages
+        )
+    
+        if feature_choice == "maid_speaks_language":
+            # Handle languages separately from other features
+            for lang_col in lang_cols:
+                lang_name = lang_col.replace("maidspeaks_", "").capitalize()
+                maid_ids = maids_df.loc[maids_df[lang_col] == 1, "maid_id"].tolist()
+    
+                with st.expander(f"maid_speaks_language: {lang_name}"):
+                    for mid in sorted(maid_ids):
+                        if st.button(f"Maid {mid}", key=f"maid_lang_{lang_name}_{mid}"):
+                            maid_row = maids_df[maids_df["maid_id"] == mid].iloc[0]
+                            st.markdown(f"### Maid {maid_row['maid_id']}")
+                            for col in maid_cols + lang_cols:
+                                st.write(f"- **{col}**: {maid_row[col]}")
+        else:
+            # Normal grouping for all other features
+            grouped = maids_df.groupby(feature_choice)["maid_id"].apply(list).reset_index()
+    
+            for _, row in grouped.iterrows():
+                with st.expander(f"{feature_choice}: {row[feature_choice]}"):
+                    for mid in sorted(row["maid_id"]):
+                        if st.button(f"Maid {mid}", key=f"maid_{feature_choice}_{mid}"):
+                            maid_row = maids_df[maids_df["maid_id"] == mid].iloc[0]
+                            st.markdown(f"### Maid {maid_row['maid_id']}")
+                            for col in maid_cols + lang_cols:
+                                st.write(f"- **{col}**: {maid_row[col]}")
