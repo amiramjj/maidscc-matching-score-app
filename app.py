@@ -818,92 +818,94 @@ if uploaded_file:
             fig_match.update_traces(textposition="outside")
             st.plotly_chart(fig_match, use_container_width=True)
 
-        # -------------------------------
-        # Top Drivers of Mismatch (By Theme)
-        # -------------------------------
-        import plotly.express as px
-        
-        def categorize_mismatch_theme(reason: str) -> str:
-            """Map mismatch explanation into the same themes used in calculate_row_score"""
-            reason = reason.lower()
-        
-            # Household Type
-            if "baby" in reason or "many kids" in reason or "household" in reason:
-                return "Household Type"
-        
-            # Pets (includes refusals and pet handling)
-            elif "cat" in reason or "dog" in reason or "pet" in reason:
-                return "Pets"
-        
-            # Day-off Policy
-            elif "day-off" in reason or "sunday" in reason:
-                return "Day-off Policy"
-        
-            # Living Arrangement
-            elif "private room" in reason or "abu dhabi" in reason or "living arrangement" in reason:
-                return "Living Arrangement"
-        
-            # Nationality
-            elif any(nat in reason for nat in ["filipina", "ethiopian", "west african", "indonesian"]):
-                return "Nationality"
-        
-            # Cuisine
-            elif "cuisine" in reason or "cooking" in reason:
-                return "Cuisine"
-        
-            # Special cases (elderly / special needs)
-            elif "caregiving" in reason or "elderly" in reason or "special needs" in reason:
-                return "Special cases"
-        
-            # Kids experience
-            elif "kids experience" in reason:
-                return "Kids experience"
-        
-            # Vegetarian / lifestyle
-            elif "veg" in reason or "vegetarian" in reason:
-                return "Vegetarian / lifestyle"
-        
-            # Smoking
-            elif "smoker" in reason or "smoking" in reason:
-                return "Smoking"
-        
-            return "Other"
-        
-        # Collect all mismatch reasons across tagged placements
-        all_mismatches = []
-        for _, row in df.iterrows():
-            expl = explain_row_score(row.to_dict())
-            for reason in expl["negative"]:
-                all_mismatches.append(reason)
-        
-        # Apply theme categorization
-        mismatch_df = pd.DataFrame({"reason": all_mismatches})
-        mismatch_df["theme"] = mismatch_df["reason"].apply(categorize_mismatch_theme)
-        
-        # Aggregate by theme
-        theme_summary = (
-            mismatch_df.groupby("theme")
-            .size()
-            .reset_index(name="count")
-            .sort_values("count", ascending=False)
-        )
-        
-        # Add percentages
-        theme_summary["percent"] = (theme_summary["count"] / theme_summary["count"].sum()) * 100
-        
-        # Plot
-        fig_mismatch = px.bar(
-            theme_summary,
-            x="count",
-            y="theme",
-            orientation="h",
-            text=theme_summary["percent"].apply(lambda x: f"{x:.1f}%"),
-            color="count",
-            color_continuous_scale="Blues",
-            labels={"count": "Number of Cases", "theme": "Mismatch Theme"},
-            title="Top Drivers of Mismatch Across Tagged Placements (By Theme)"
-        )
-        
-        st.plotly_chart(fig_mismatch, use_container_width=True)
-
-       
+            # -------------------------------
+            # Top Drivers of Match & Mismatch
+            # -------------------------------
+            st.markdown("### 🔎 Top Drivers of Match vs. Mismatch")
+            
+            from collections import Counter
+            import plotly.express as px
+            
+            # --- Theme classifier (aligned 100% with explain_row_score logic) ---
+            def classify_theme(reason: str):
+                r = reason.lower()
+                if "baby" in r or "kids" in r:
+                    if "experience" in r:
+                        return "Kids Experience"
+                    else:
+                        return "Household Type"
+                elif "pet" in r or "cat" in r or "dog" in r:
+                    return "Pets"
+                elif "day-off" in r or "sunday" in r:
+                    return "Day-off Policy"
+                elif "private room" in r or "living" in r or "arrangement" in r or "abu dhabi" in r:
+                    return "Living Arrangement"
+                elif "nationality" in r:
+                    return "Nationality"
+                elif "cuisine" in r or "cooking" in r:
+                    return "Cuisine"
+                elif "special" in r or "caregiving" in r or "elderly" in r or "needs" in r:
+                    return "Special Cases"
+                elif "veg" in r or "vegetarian" in r:
+                    return "Vegetarian / Lifestyle"
+                elif "smoker" in r:
+                    return "Smoking"
+                else:
+                    return "Unclassified"
+            
+            # --- Collect reasons across all rows ---
+            mismatch_reasons = []
+            match_reasons = []
+            
+            for _, row in df.iterrows():
+                exps = explain_row_score(row.to_dict())
+            
+                # Exclude neutrals (those "did not specify" type messages)
+                mismatch_reasons.extend([classify_theme(r) for r in exps["negative"]])
+                match_reasons.extend([classify_theme(r) for r in exps["positive"]])
+            
+            # --- Count and normalize ---
+            mismatch_counts = Counter(mismatch_reasons)
+            match_counts = Counter(match_reasons)
+            
+            mismatch_df = pd.DataFrame(mismatch_counts.items(), columns=["Theme", "Count"])
+            match_df = pd.DataFrame(match_counts.items(), columns=["Theme", "Count"])
+            
+            # Drop zero counts and any "Unclassified" if not needed
+            mismatch_df = mismatch_df[(mismatch_df["Count"] > 0) & (mismatch_df["Theme"] != "Unclassified")]
+            match_df = match_df[(match_df["Count"] > 0) & (match_df["Theme"] != "Unclassified")]
+            
+            mismatch_df["Percent"] = mismatch_df["Count"] / mismatch_df["Count"].sum() * 100
+            match_df["Percent"] = match_df["Count"] / match_df["Count"].sum() * 100
+            
+            # Order by percentage ascending
+            mismatch_df = mismatch_df.sort_values("Percent", ascending=True)
+            match_df = match_df.sort_values("Percent", ascending=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig_mismatch = px.bar(
+                    mismatch_df,
+                    x="Percent", y="Theme",
+                    orientation="h",
+                    text=mismatch_df["Percent"].round(1).astype(str) + "%",
+                    color="Count",
+                    color_continuous_scale="Blues",
+                    title="Top Drivers of Mismatch"
+                )
+                fig_mismatch.update_traces(textposition="outside")
+                st.plotly_chart(fig_mismatch, use_container_width=True)
+            
+            with col2:
+                fig_match = px.bar(
+                    match_df,
+                    x="Percent", y="Theme",
+                    orientation="h",
+                    text=match_df["Percent"].round(1).astype(str) + "%",
+                    color="Count",
+                    color_continuous_scale="Greens",
+                    title="Top Drivers of Match"
+                )
+                fig_match.update_traces(textposition="outside")
+                st.plotly_chart(fig_match, use_container_width=True)
