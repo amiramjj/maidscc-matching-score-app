@@ -727,93 +727,93 @@ if uploaded_file:
         )
 
         # -------------------------------
-        # Top Drivers of Matches vs Mismatches
+        # Top Drivers of Mismatch & Match
         # -------------------------------
-        st.markdown("## 🔎 Top Drivers of Matches vs Mismatches (By Theme)")
-        
-        # Helper: map explanation phrases to themes
-        def map_theme(explanation):
-            explanation = explanation.lower()
-            if "baby" in explanation or "kids" in explanation:
-                return "Household Type / Kids Experience"
-            elif "dog" in explanation or "cat" in explanation or "pets" in explanation:
+        st.markdown("### 🔎 Top Drivers of Match vs. Mismatch")
+
+        from collections import Counter
+        import plotly.express as px
+
+        # Classify reasons into themes (consistent with score logic)
+        def classify_theme(reason: str):
+            r = reason.lower()
+            if "baby" in r or "kids" in r:
+                return "Household Type" if "refuses" in r else "Kids Experience"
+            elif "pet" in r or "cat" in r or "dog" in r:
                 return "Pets"
-            elif "day-off" in explanation or "sunday" in explanation:
+            elif "day-off" in r or "sunday" in r:
                 return "Day-off Policy"
-            elif "private room" in explanation or "living" in explanation:
+            elif "private room" in r or "living" in r or "arrangement" in r:
                 return "Living Arrangement"
-            elif "nationality" in explanation:
+            elif "nationality" in r:
                 return "Nationality"
-            elif "cuisine" in explanation or "cooking" in explanation:
+            elif "cuisine" in r or "cooking" in r:
                 return "Cuisine"
-            elif "caregiving" in explanation or "elderly" in explanation or "special needs" in explanation:
+            elif "special" in r or "caregiving" in r:
                 return "Special Cases"
-            elif "veg" in explanation or "vegetarian" in explanation:
+            elif "veg" in r or "vegetarian" in r:
                 return "Vegetarian / Lifestyle"
-            elif "smoker" in explanation:
+            elif "smoker" in r:
                 return "Smoking"
             else:
                 return "Other"
-        
-        # Collect explanations for all rows
-        all_explanations = []
+
+        # Collect reasons across all rows
+        mismatch_reasons = []
+        match_reasons = []
+
         for _, row in df.iterrows():
-            expl = explain_row_score(row.to_dict())
-            for r in expl["positive"]:
-                all_explanations.append({"theme": map_theme(r), "type": "match"})
-            for r in expl["negative"]:
-                all_explanations.append({"theme": map_theme(r), "type": "mismatch"})
-        
-        expl_df = pd.DataFrame(all_explanations)
-        
-        # Aggregate counts by theme
-        theme_summary = (
-            expl_df.groupby(["theme", "type"])
-            .size()
-            .reset_index(name="count")
-        )
-        
-        # Compute % within each type
-        theme_summary["percent"] = theme_summary.groupby("type")["count"].transform(lambda x: x / x.sum() * 100)
-        
-        # Split into match vs mismatch summaries
-        match_theme_summary = theme_summary[theme_summary["type"] == "match"]
-        mismatch_theme_summary = theme_summary[theme_summary["type"] == "mismatch"]
-        
-        # Side-by-side charts
+            exps = explain_row_score(row.to_dict())
+            mismatch_reasons.extend([classify_theme(r) for r in exps["negative"]])
+            match_reasons.extend([classify_theme(r) for r in exps["positive"]])
+
+        # Count and normalize
+        mismatch_counts = Counter(mismatch_reasons)
+        match_counts = Counter(match_reasons)
+
+        mismatch_df = pd.DataFrame(mismatch_counts.items(), columns=["Theme", "Count"])
+        match_df = pd.DataFrame(match_counts.items(), columns=["Theme", "Count"])
+
+        mismatch_df["Percent"] = mismatch_df["Count"] / mismatch_df["Count"].sum() * 100
+        match_df["Percent"] = match_df["Count"] / match_df["Count"].sum() * 100
+
+        # Ensure consistent ordering of themes
+        theme_order = [
+            "Household Type", "Kids Experience", "Pets",
+            "Day-off Policy", "Living Arrangement", "Nationality",
+            "Cuisine", "Special Cases", "Vegetarian / Lifestyle", "Smoking", "Other"
+        ]
+        mismatch_df["Theme"] = pd.Categorical(mismatch_df["Theme"], categories=theme_order, ordered=True)
+        match_df["Theme"] = pd.Categorical(match_df["Theme"], categories=theme_order, ordered=True)
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
-            st.subheader("Top Drivers of Mismatches")
             fig_mismatch = px.bar(
-                mismatch_theme_summary.sort_values("percent", ascending=True),
-                x="percent",
-                y="theme",
+                mismatch_df.sort_values("Theme"),
+                x="Percent", y="Theme",
                 orientation="h",
-                text="percent",
-                color="count",
+                text=mismatch_df["Percent"].round(1).astype(str) + "%",
+                color="Count",
                 color_continuous_scale="Blues",
-                labels={"percent": "Percentage of Cases", "theme": "Mismatch Theme"},
                 title="Top Drivers of Mismatch"
             )
-            fig_mismatch.update_traces(texttemplate="%{text:.1f}%")
+            fig_mismatch.update_traces(textposition="outside")
             st.plotly_chart(fig_mismatch, use_container_width=True)
-        
+
         with col2:
-            st.subheader("Top Drivers of Matches")
             fig_match = px.bar(
-                match_theme_summary.sort_values("percent", ascending=True),
-                x="percent",
-                y="theme",
+                match_df.sort_values("Theme"),
+                x="Percent", y="Theme",
                 orientation="h",
-                text="percent",
-                color="count",
+                text=match_df["Percent"].round(1).astype(str) + "%",
+                color="Count",
                 color_continuous_scale="Greens",
-                labels={"percent": "Percentage of Cases", "theme": "Match Theme"},
                 title="Top Drivers of Match"
             )
-            fig_match.update_traces(texttemplate="%{text:.1f}%")
+            fig_match.update_traces(textposition="outside")
             st.plotly_chart(fig_match, use_container_width=True)
+
 
         # -------------------------------
         # Top Drivers of Mismatch (By Theme)
