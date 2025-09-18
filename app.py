@@ -681,3 +681,74 @@ if uploaded_file:
         )
 
 
+        # -------------------------------
+        # Top Drivers of Mismatch
+        # -------------------------------
+        st.markdown("### Top Drivers of Mismatch")
+
+        # Collect mismatch reasons from all tagged rows
+        mismatch_counts = {}
+        feature_map = {
+            "household": "Household Type",
+            "pets": "Pets",
+            "day-off": "Day-off Policy",
+            "living": "Living Arrangement",
+            "nationality": "Nationality",
+            "cuisine": "Cuisine",
+            "caregiving": "Special Cases / Caregiving",
+            "smoking": "Smoking Preference"
+        }
+
+        for _, row in df.iterrows():
+            explanations = explain_row_score(row.to_dict())
+            for neg in explanations["negative"]:
+                neg_lower = neg.lower()
+                if "baby" in neg_lower or "kids" in neg_lower:
+                    key = "household"
+                elif "cat" in neg_lower or "dog" in neg_lower or "pet" in neg_lower:
+                    key = "pets"
+                elif "day-off" in neg_lower or "sunday" in neg_lower:
+                    key = "day-off"
+                elif "private room" in neg_lower or "living" in neg_lower:
+                    key = "living"
+                elif "prefers" in neg_lower and "maid" in neg_lower:
+                    key = "nationality"
+                elif "cuisine" in neg_lower or "cooking" in neg_lower:
+                    key = "cuisine"
+                elif "caregiving" in neg_lower or "elderly" in neg_lower or "special" in neg_lower:
+                    key = "caregiving"
+                elif "smoker" in neg_lower:
+                    key = "smoking"
+                else:
+                    key = "other"
+
+                mismatch_counts[key] = mismatch_counts.get(key, 0) + 1
+
+        # Prepare DataFrame
+        mismatch_df = pd.DataFrame([
+            {"Feature": feature_map.get(k, k), "Count": v}
+            for k, v in mismatch_counts.items()
+        ]).sort_values("Count", ascending=False)
+
+        import plotly.express as px
+        fig_mismatch = px.bar(
+            mismatch_df,
+            x="Count",
+            y="Feature",
+            orientation="h",
+            color="Count",
+            color_continuous_scale="Reds",
+            title="Top Drivers of Mismatch"
+        )
+        st.plotly_chart(fig_mismatch, use_container_width=True)
+
+        st.caption(
+            """
+            These are the **most frequent friction points** holding back stronger matches.
+            By addressing the top few (for example, Pets and Household Type mismatches),
+            we can immediately shift a large share of clients out of the low-fit bucket.
+            """
+        )
+
+
+
