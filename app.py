@@ -671,10 +671,12 @@ if uploaded_file:
         
         st.caption(
             """
-            This portfolio view makes the stakes clear:
-            - **Tagged placements** show most clients trapped in **low-fit assignments** (<20%).  
-            - With algorithmic **best matches**, the share of **high-fit clients jumps sharply**, cutting replacement risk.  
-            - The takeaway: every step toward data-driven matching pulls clients **out of the red zone** and into stronger, more sustainable placements.
+            When we shift from tagged to data-driven matching, the difference is clear:
+            - High-fit placements (>50%) climb from 10.9% to 15.0% — a meaningful jump in strong alignments.
+            - Medium-fit (20–50%) holds steady, moving slightly from 23.8% to 23.2%.
+            - Low-fit placements (<20%) drop from 65.3% to 61.8%, showing fewer clients stuck in mismatched assignments.
+                  
+            Every percentage point gained in medium-high fit matches translates into fewer costly replacements, stronger satisfaction, and more loyalty secured.
             """
         )
 
