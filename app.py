@@ -680,100 +680,48 @@ if uploaded_file:
             """
         )
 
-
         # -------------------------------
         # Top Drivers of Mismatch
         # -------------------------------
         st.markdown("### ❌ Top Drivers of Mismatch")
-
-        # Collect mismatch reasons from tagged rows
-        mismatch_counts = {
-            "household": 0,
-            "pets": 0,
-            "dayoff": 0,
-            "living": 0,
-            "nationality": 0,
-            "cuisine": 0,
-            "caregiving": 0,
-            "kids_experience": 0,
-            "pet_handling": 0,
-            "vegetarian": 0,
-            "smoking": 0,
-            "other": 0
-        }
-
-        feature_labels = {
-            "household": "Household Type",
-            "pets": "Pets",
-            "dayoff": "Day-off Policy",
-            "living": "Living Arrangement",
-            "nationality": "Nationality Preference",
-            "cuisine": "Cuisine Preference",
-            "caregiving": "Caregiving / Special Cases",
-            "kids_experience": "Kids Experience",
-            "pet_handling": "Pet Handling",
-            "vegetarian": "Vegetarian / Lifestyle",
-            "smoking": "Smoking",
-            "other": "Other"
-        }
-
-        for _, row in df.iterrows():
-            explanations = explain_row_score(row.to_dict())
-            for neg in explanations["negative"]:
-                neg_lower = neg.lower()
-                if "baby" in neg_lower or "kids" in neg_lower:
-                    mismatch_counts["household"] += 1
-                elif "cat" in neg_lower or "dog" in neg_lower or "pet" in neg_lower:
-                    mismatch_counts["pets"] += 1
-                elif "day-off" in neg_lower or "sunday" in neg_lower:
-                    mismatch_counts["dayoff"] += 1
-                elif "private room" in neg_lower or "living" in neg_lower:
-                    mismatch_counts["living"] += 1
-                elif "prefers" in neg_lower and "maid" in neg_lower:
-                    mismatch_counts["nationality"] += 1
-                elif "cuisine" in neg_lower or "cooking" in neg_lower:
-                    mismatch_counts["cuisine"] += 1
-                elif "caregiving" in neg_lower or "elderly" in neg_lower or "special" in neg_lower:
-                    mismatch_counts["caregiving"] += 1
-                elif "kids experience" in neg_lower:
-                    mismatch_counts["kids_experience"] += 1
-                elif "pet handling" in neg_lower:
-                    mismatch_counts["pet_handling"] += 1
-                elif "veg" in neg_lower:
-                    mismatch_counts["vegetarian"] += 1
-                elif "smoker" in neg_lower:
-                    mismatch_counts["smoking"] += 1
-                else:
-                    mismatch_counts["other"] += 1
-
-        # Build DataFrame
-        mismatch_df = pd.DataFrame([
-            {"Feature": feature_labels[k], "Count": v}
-            for k, v in mismatch_counts.items() if v > 0
-        ]).sort_values("Count", ascending=False)
-
-        # Add percentages
-        total_mismatches = mismatch_df["Count"].sum()
-        mismatch_df["Percent"] = (mismatch_df["Count"] / total_mismatches * 100).round(1)
-
+        
+        # Function to extract mismatch drivers for each row
+        def get_mismatch_reasons(row):
+            explanations = explain_row_score(row)
+            return explanations["negative"]
+        
+        # Collect mismatches for all tagged placements
+        all_mismatches = df.apply(lambda r: get_mismatch_reasons(r.to_dict()), axis=1)
+        
+        # Flatten list of mismatches
+        mismatch_list = [reason for sublist in all_mismatches for reason in sublist]
+        
+        # Aggregate counts
+        mismatch_counts = pd.Series(mismatch_list).value_counts().reset_index()
+        mismatch_counts.columns = ["Mismatch Reason", "Count"]
+        
+        # Convert to percentage of total mismatches
+        mismatch_counts["Percent"] = (mismatch_counts["Count"] / mismatch_counts["Count"].sum()) * 100
+        
         # Plot
         fig_mismatch = px.bar(
-            mismatch_df,
-            x="Percent",
-            y="Feature",
+            mismatch_counts.sort_values("Count", ascending=True),
+            x="Count",
+            y="Mismatch Reason",
             orientation="h",
-            text="Percent",
-            color="Percent",
-            color_continuous_scale="Reds",
-            title="Top Drivers of Mismatch (%)"
+            text=mismatch_counts["Percent"].apply(lambda x: f"{x:.1f}%"),
+            labels={"Count": "Number of Cases", "Mismatch Reason": "Driver"},
+            title="Top Drivers of Mismatch Across Tagged Placements",
+            color="Count",
+            color_continuous_scale="Blues"
         )
-        fig_mismatch.update_traces(texttemplate="%{text}%", textposition="outside")
+        
         st.plotly_chart(fig_mismatch, use_container_width=True)
-
+        
         st.caption(
             """
-            These are the **biggest friction points** pulling matches down.
-            By tackling the top 2–3 drivers (often Household Type, Pets, and Day-off Policy),
-            we can reduce the bulk of mismatches and shift more clients into the high-fit band.
+            This chart highlights the **most common reasons clients and maids misalign** in current placements.  
+            By targeting the top mismatch drivers (e.g., pets, household type, caregiving needs), we can unlock 
+            disproportionate improvements in fit, retention, and satisfaction.
             """
         )
