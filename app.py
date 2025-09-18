@@ -652,22 +652,23 @@ if uploaded_file:
         bucket_order = ["Low-fit (<20%)", "Medium-fit (20–50%)", "High-fit (>50%)"]
 
         # Stacked bar
-        fig_buckets = px.bar(
-            bucket_summary,
+        fig4 = px.bar(
+            risk_dist,
             x="type",
             y="percent",
             color="bucket",
-            category_orders={"bucket": bucket_order, "type": ["Tagged", "Best"]},
+            barmode="stack",
+            category_orders={"type": ["Tagged", "Best"], "bucket": ["Low-fit (<20%)", "Medium-fit (20–50%)", "High-fit (>50%)"]},
             color_discrete_map={
-                "Low-fit (<20%)": "#d73027",   # red
-                "Medium-fit (20–50%)": "#fc8d59",  # orange
-                "High-fit (>50%)": "#1a9850"   # green
+                "Low-fit (<20%)": "#9ecae1",   # light blue
+                "Medium-fit (20–50%)": "#9ecae1",  # same light blue
+                "High-fit (>50%)": "#084594"   # dark blue highlight
             },
             labels={"type": "Group", "percent": "Percentage of Clients", "bucket": "Risk Bucket"},
             title="Client Distribution Across Risk Buckets"
         )
-
-        st.plotly_chart(fig_buckets, use_container_width=True)
+        st.plotly_chart(fig4, use_container_width=True)
+        
 
         st.caption(
             """
@@ -677,4 +678,5 @@ if uploaded_file:
             - The takeaway: every step toward data-driven matching pulls clients **out of the red zone** and into stronger, more sustainable placements.
             """
         )
+
 
