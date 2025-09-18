@@ -730,11 +730,11 @@ if uploaded_file:
         # Top Drivers of Match & Mismatch
         # -------------------------------
         st.markdown("### 🔎 Top Drivers of Match vs. Mismatch")
-
+        
         from collections import Counter
         import plotly.express as px
-
-        # --- Theme classifier (consistent with score logic) ---
+        
+        # --- Theme classifier (aligned with score logic) ---
         def classify_theme(reason: str):
             r = reason.lower()
             if "baby" in r or "kids" in r:
@@ -760,36 +760,38 @@ if uploaded_file:
                 return "Smoking"
             else:
                 return "Other"
-
-        # --- Collect reasons across all rows ---
+        
+        # --- Collect reasons across all rows (skip neutrals) ---
         mismatch_reasons = []
         match_reasons = []
-
+        
         for _, row in df.iterrows():
             exps = explain_row_score(row.to_dict())
+            # ✅ only positives & negatives
             mismatch_reasons.extend([classify_theme(r) for r in exps["negative"]])
             match_reasons.extend([classify_theme(r) for r in exps["positive"]])
-
+        
         # --- Count and normalize ---
         mismatch_counts = Counter(mismatch_reasons)
         match_counts = Counter(match_reasons)
-
+        
         mismatch_df = pd.DataFrame(mismatch_counts.items(), columns=["Theme", "Count"])
         match_df = pd.DataFrame(match_counts.items(), columns=["Theme", "Count"])
-
+        
         # Drop themes with zero
         mismatch_df = mismatch_df[mismatch_df["Count"] > 0]
         match_df = match_df[match_df["Count"] > 0]
-
+        
         mismatch_df["Percent"] = mismatch_df["Count"] / mismatch_df["Count"].sum() * 100
         match_df["Percent"] = match_df["Count"] / match_df["Count"].sum() * 100
-
+        
         # Order by percentage ascending
         mismatch_df = mismatch_df.sort_values("Percent", ascending=True)
         match_df = match_df.sort_values("Percent", ascending=True)
-
+        
+        # --- Side-by-side charts ---
         col1, col2 = st.columns(2)
-
+        
         with col1:
             fig_mismatch = px.bar(
                 mismatch_df,
@@ -802,7 +804,7 @@ if uploaded_file:
             )
             fig_mismatch.update_traces(textposition="outside")
             st.plotly_chart(fig_mismatch, use_container_width=True)
-
+        
         with col2:
             fig_match = px.bar(
                 match_df,
