@@ -725,3 +725,69 @@ if uploaded_file:
             disproportionate improvements in fit, retention, and satisfaction.
             """
         )
+
+        # -------------------------------
+        # Top Drivers of Mismatch (Grouped)
+        # -------------------------------
+        st.markdown("### ❌ Top Drivers of Mismatch (Grouped)")
+        
+        def categorize_mismatch(reason: str) -> str:
+            """Map detailed mismatch reasons into conceptual categories."""
+            reason = reason.lower()
+            if "cat" in reason or "dog" in reason or "pet" in reason:
+                return "Pets"
+            elif "baby" in reason or "kids" in reason:
+                return "Household Type / Kids"
+            elif "day-off" in reason or "sunday" in reason:
+                return "Day-off Policy"
+            elif "private room" in reason or "living" in reason or "abu dhabi" in reason:
+                return "Living Arrangement"
+            elif "nationality" in reason or "filipina" in reason or "ethiopian" in reason or "west african" in reason:
+                return "Nationality Preference"
+            elif "cuisine" in reason or "cooking" in reason:
+                return "Cuisine Preference"
+            elif "caregiving" in reason or "elderly" in reason or "special" in reason:
+                return "Caregiving Needs"
+            elif "veg" in reason or "vegetarian" in reason:
+                return "Lifestyle / Veg Preference"
+            elif "smoker" in reason or "smoking" in reason:
+                return "Smoking"
+            else:
+                return "Other"
+        
+        # Collect all mismatch drivers
+        all_mismatches = df.apply(lambda r: get_mismatch_reasons(r.to_dict()), axis=1)
+        mismatch_list = [reason for sublist in all_mismatches for reason in sublist]
+        
+        # Categorize them
+        grouped_mismatches = pd.Series(mismatch_list).map(categorize_mismatch)
+        
+        # Aggregate counts
+        mismatch_summary = grouped_mismatches.value_counts().reset_index()
+        mismatch_summary.columns = ["Mismatch Category", "Count"]
+        mismatch_summary["Percent"] = mismatch_summary["Count"] / mismatch_summary["Count"].sum() * 100
+        
+        # Plot
+        fig_mismatch_grouped = px.bar(
+            mismatch_summary.sort_values("Count", ascending=True),
+            x="Count",
+            y="Mismatch Category",
+            orientation="h",
+            text=mismatch_summary["Percent"].apply(lambda x: f"{x:.1f}%"),
+            labels={"Count": "Number of Cases", "Mismatch Category": "Driver"},
+            title="Top Drivers of Mismatch (Concept-Level)",
+            color="Count",
+            color_continuous_scale="Blues"
+        )
+        
+        st.plotly_chart(fig_mismatch_grouped, use_container_width=True)
+        
+        st.caption(
+            """
+            By grouping mismatches into **concept-level drivers**, we see clearer priorities:  
+            - **Pets** and **Household Type** dominate misalignments.  
+            - **Nationality and Cuisine preferences** also contribute notably.  
+            - Addressing these top buckets will yield the largest impact in reducing mismatches at scale.
+            """
+        )
+        
