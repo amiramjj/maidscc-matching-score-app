@@ -620,3 +620,61 @@ if uploaded_file:
             - The side-by-side view makes it easy to see *what exactly drives the difference*.
             """
         )
+        
+        # -------------------------------
+        # Portfolio Risk Buckets
+        # -------------------------------
+        st.markdown("### Portfolio Risk Buckets: Low vs Medium vs High Fit")
+
+        # Create buckets
+        def bucket_score(score):
+            if score < 20:
+                return "Low-fit (<20%)"
+            elif score < 50:
+                return "Medium-fit (20–50%)"
+            else:
+                return "High-fit (>50%)"
+
+        tagged_scores["bucket"] = tagged_scores["match_score_pct"].apply(bucket_score)
+        best_scores["bucket"] = best_scores["match_score_pct"].apply(bucket_score)
+
+        bucket_data = pd.concat([tagged_scores, best_scores], ignore_index=True)
+
+        # Aggregate % by bucket
+        bucket_summary = (
+            bucket_data.groupby(["bucket", "type"])
+            .size()
+            .reset_index(name="count")
+        )
+        bucket_summary["percent"] = bucket_summary.groupby("type")["count"].transform(lambda x: x / x.sum() * 100)
+
+        # Ensure consistent order
+        bucket_order = ["Low-fit (<20%)", "Medium-fit (20–50%)", "High-fit (>50%)"]
+
+        # Stacked bar
+        fig_buckets = px.bar(
+            bucket_summary,
+            x="type",
+            y="percent",
+            color="bucket",
+            category_orders={"bucket": bucket_order, "type": ["Tagged", "Best"]},
+            color_discrete_map={
+                "Low-fit (<20%)": "#d73027",   # red
+                "Medium-fit (20–50%)": "#fc8d59",  # orange
+                "High-fit (>50%)": "#1a9850"   # green
+            },
+            labels={"type": "Group", "percent": "Percentage of Clients", "bucket": "Risk Bucket"},
+            title="Client Distribution Across Risk Buckets"
+        )
+
+        st.plotly_chart(fig_buckets, use_container_width=True)
+
+        st.caption(
+            """
+            This portfolio view makes the stakes clear:
+            - **Tagged placements** show most clients trapped in **low-fit assignments** (<20%).  
+            - With algorithmic **best matches**, the share of **high-fit clients jumps sharply**, cutting replacement risk.  
+            - The takeaway: every step toward data-driven matching pulls clients **out of the red zone** and into stronger, more sustainable placements.
+            """
+        )
+
