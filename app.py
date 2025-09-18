@@ -727,67 +727,75 @@ if uploaded_file:
         )
 
         # -------------------------------
-        # Top Drivers of Mismatch (Grouped)
+        # Top Drivers of Mismatch (By Themes in Score Function)
         # -------------------------------
-        st.markdown("### ❌ Top Drivers of Mismatch (Grouped)")
+        st.markdown("### ❌ Top Drivers of Mismatch by Theme")
         
-        def categorize_mismatch(reason: str) -> str:
-            """Map detailed mismatch reasons into conceptual categories."""
+        def categorize_mismatch_theme(reason: str) -> str:
+            """Map each mismatch reason into one of the defined scoring themes."""
             reason = reason.lower()
-            if "cat" in reason or "dog" in reason or "pet" in reason:
+            if "baby" in reason or "kids" in reason and "experience" not in reason:
+                return "Household Type"
+            elif "cat" in reason or "dog" in reason:
                 return "Pets"
-            elif "baby" in reason or "kids" in reason:
-                return "Household Type / Kids"
             elif "day-off" in reason or "sunday" in reason:
                 return "Day-off Policy"
             elif "private room" in reason or "living" in reason or "abu dhabi" in reason:
                 return "Living Arrangement"
             elif "nationality" in reason or "filipina" in reason or "ethiopian" in reason or "west african" in reason:
-                return "Nationality Preference"
+                return "Nationality"
             elif "cuisine" in reason or "cooking" in reason:
-                return "Cuisine Preference"
-            elif "caregiving" in reason or "elderly" in reason or "special" in reason:
-                return "Caregiving Needs"
+                return "Cuisine"
+            elif "caregiving" in reason or "elderly" in reason or "special needs" in reason:
+                return "Special cases"
+            elif "experience" in reason and "kids" in reason:
+                return "Kids experience"
+            elif "pet handling" in reason:
+                return "Pets handling"
             elif "veg" in reason or "vegetarian" in reason:
-                return "Lifestyle / Veg Preference"
+                return "Vegetarian / lifestyle"
             elif "smoker" in reason or "smoking" in reason:
                 return "Smoking"
             else:
                 return "Other"
         
-        # Collect all mismatch drivers
+        # Collect all mismatch reasons per row (we already have explain_row_score giving "negative")
+        def get_mismatch_reasons(row):
+            return explain_row_score(row)["negative"]
+        
         all_mismatches = df.apply(lambda r: get_mismatch_reasons(r.to_dict()), axis=1)
         mismatch_list = [reason for sublist in all_mismatches for reason in sublist]
         
-        # Categorize them
-        grouped_mismatches = pd.Series(mismatch_list).map(categorize_mismatch)
+        # Categorize into themes
+        grouped_mismatches = pd.Series(mismatch_list).map(categorize_mismatch_theme)
         
-        # Aggregate counts
+        # Aggregate counts by theme
         mismatch_summary = grouped_mismatches.value_counts().reset_index()
-        mismatch_summary.columns = ["Mismatch Category", "Count"]
+        mismatch_summary.columns = ["Theme", "Count"]
         mismatch_summary["Percent"] = mismatch_summary["Count"] / mismatch_summary["Count"].sum() * 100
         
         # Plot
-        fig_mismatch_grouped = px.bar(
+        fig_mismatch_themes = px.bar(
             mismatch_summary.sort_values("Count", ascending=True),
             x="Count",
-            y="Mismatch Category",
+            y="Theme",
             orientation="h",
             text=mismatch_summary["Percent"].apply(lambda x: f"{x:.1f}%"),
-            labels={"Count": "Number of Cases", "Mismatch Category": "Driver"},
-            title="Top Drivers of Mismatch (Concept-Level)",
+            labels={"Count": "Number of Cases", "Theme": "Mismatch Theme"},
+            title="Top Drivers of Mismatch Across Tagged Placements (By Theme)",
             color="Count",
             color_continuous_scale="Blues"
         )
         
-        st.plotly_chart(fig_mismatch_grouped, use_container_width=True)
+        st.plotly_chart(fig_mismatch_themes, use_container_width=True)
         
         st.caption(
             """
-            By grouping mismatches into **concept-level drivers**, we see clearer priorities:  
-            - **Pets** and **Household Type** dominate misalignments.  
-            - **Nationality and Cuisine preferences** also contribute notably.  
-            - Addressing these top buckets will yield the largest impact in reducing mismatches at scale.
+            This view mirrors the **scoring structure**:  
+            - **Household Type, Pets, and Kids experience** are leading mismatch themes.  
+            - **Nationality and Cuisine preferences** create frequent alignment gaps.  
+            - Smaller but important drivers include **Day-off policies, Caregiving needs, Lifestyle (vegetarian), and Smoking**.  
+        
+            This structured lens makes it clear *which exact knobs drive misalignment*, so interventions can be directly targeted.
             """
         )
-        
