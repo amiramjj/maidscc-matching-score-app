@@ -725,6 +725,96 @@ if uploaded_file:
             disproportionate improvements in fit, retention, and satisfaction.
             """
         )
+
+        # -------------------------------
+        # Top Drivers of Matches vs Mismatches
+        # -------------------------------
+        st.markdown("## 🔎 Top Drivers of Matches vs Mismatches (By Theme)")
+        
+        # Helper: map explanation phrases to themes
+        def map_theme(explanation):
+            explanation = explanation.lower()
+            if "baby" in explanation or "kids" in explanation:
+                return "Household Type / Kids Experience"
+            elif "dog" in explanation or "cat" in explanation or "pets" in explanation:
+                return "Pets"
+            elif "day-off" in explanation or "sunday" in explanation:
+                return "Day-off Policy"
+            elif "private room" in explanation or "living" in explanation:
+                return "Living Arrangement"
+            elif "nationality" in explanation:
+                return "Nationality"
+            elif "cuisine" in explanation or "cooking" in explanation:
+                return "Cuisine"
+            elif "caregiving" in explanation or "elderly" in explanation or "special needs" in explanation:
+                return "Special Cases"
+            elif "veg" in explanation or "vegetarian" in explanation:
+                return "Vegetarian / Lifestyle"
+            elif "smoker" in explanation:
+                return "Smoking"
+            else:
+                return "Other"
+        
+        # Collect explanations for all rows
+        all_explanations = []
+        for _, row in df.iterrows():
+            expl = explain_row_score(row.to_dict())
+            for r in expl["positive"]:
+                all_explanations.append({"theme": map_theme(r), "type": "match"})
+            for r in expl["negative"]:
+                all_explanations.append({"theme": map_theme(r), "type": "mismatch"})
+        
+        expl_df = pd.DataFrame(all_explanations)
+        
+        # Aggregate counts by theme
+        theme_summary = (
+            expl_df.groupby(["theme", "type"])
+            .size()
+            .reset_index(name="count")
+        )
+        
+        # Compute % within each type
+        theme_summary["percent"] = theme_summary.groupby("type")["count"].transform(lambda x: x / x.sum() * 100)
+        
+        # Split into match vs mismatch summaries
+        match_theme_summary = theme_summary[theme_summary["type"] == "match"]
+        mismatch_theme_summary = theme_summary[theme_summary["type"] == "mismatch"]
+        
+        # Side-by-side charts
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Top Drivers of Mismatches")
+            fig_mismatch = px.bar(
+                mismatch_theme_summary.sort_values("percent", ascending=True),
+                x="percent",
+                y="theme",
+                orientation="h",
+                text="percent",
+                color="count",
+                color_continuous_scale="Blues",
+                labels={"percent": "Percentage of Cases", "theme": "Mismatch Theme"},
+                title="Top Drivers of Mismatch"
+            )
+            fig_mismatch.update_traces(texttemplate="%{text:.1f}%")
+            st.plotly_chart(fig_mismatch, use_container_width=True)
+        
+        with col2:
+            st.subheader("Top Drivers of Matches")
+            fig_match = px.bar(
+                match_theme_summary.sort_values("percent", ascending=True),
+                x="percent",
+                y="theme",
+                orientation="h",
+                text="percent",
+                color="count",
+                color_continuous_scale="Greens",
+                labels={"percent": "Percentage of Cases", "theme": "Match Theme"},
+                title="Top Drivers of Match"
+            )
+            fig_match.update_traces(texttemplate="%{text:.1f}%")
+            st.plotly_chart(fig_match, use_container_width=True)
+
         # -------------------------------
         # Top Drivers of Mismatch (By Theme)
         # -------------------------------
