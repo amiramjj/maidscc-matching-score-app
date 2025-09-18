@@ -652,24 +652,23 @@ if uploaded_file:
         bucket_order = ["Low-fit (<20%)", "Medium-fit (20–50%)", "High-fit (>50%)"]
 
         # Stacked bar
-        fig4 = px.bar(
-            risk_dist,
+        fig_buckets = px.bar(
+            bucket_summary,
             x="type",
             y="percent",
             color="bucket",
-            barmode="stack",
-            category_orders={"type": ["Tagged", "Best"], "bucket": ["Low-fit (<20%)", "Medium-fit (20–50%)", "High-fit (>50%)"]},
+            category_orders={"bucket": bucket_order, "type": ["Tagged", "Best"]},
             color_discrete_map={
-                "Low-fit (<20%)": "#9ecae1",   # light blue
-                "Medium-fit (20–50%)": "#9ecae1",  # same light blue
-                "High-fit (>50%)": "#084594"   # dark blue highlight
+                "Low-fit (<20%)": "#9ecae1",      # light blue
+                "Medium-fit (20–50%)": "#9ecae1", # same light blue
+                "High-fit (>50%)": "#08519c"      # dark blue
             },
             labels={"type": "Group", "percent": "Percentage of Clients", "bucket": "Risk Bucket"},
             title="Client Distribution Across Risk Buckets"
-        )
+        )        
+        
         st.plotly_chart(fig4, use_container_width=True)
         
-
         st.caption(
             """
             This portfolio view makes the stakes clear:
