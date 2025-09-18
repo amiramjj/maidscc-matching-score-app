@@ -812,7 +812,7 @@ if uploaded_file:
         with col2:
             fig_match = px.bar(
                 match_df,
-                x="Percent", y="Theme",
+                x="Percent", y="",
                 orientation="h",
                 color="Percent",
                 color_continuous_scale="Greens",
