@@ -725,77 +725,92 @@ if uploaded_file:
             disproportionate improvements in fit, retention, and satisfaction.
             """
         )
-
         # -------------------------------
-        # Top Drivers of Mismatch (By Themes in Score Function)
+        # Top Drivers of Mismatch (By Theme)
         # -------------------------------
-        st.markdown("### ❌ Top Drivers of Mismatch by Theme")
+        import plotly.express as px
         
         def categorize_mismatch_theme(reason: str) -> str:
-            """Map each mismatch reason into one of the defined scoring themes."""
+            """Map mismatch explanation into the same themes used in calculate_row_score"""
             reason = reason.lower()
-            if "baby" in reason or "kids" in reason and "experience" not in reason:
+        
+            # Household Type
+            if "baby" in reason or "many kids" in reason or "household" in reason:
                 return "Household Type"
-            elif "cat" in reason or "dog" in reason:
+        
+            # Pets (includes refusals and pet handling)
+            elif "cat" in reason or "dog" in reason or "pet" in reason:
                 return "Pets"
+        
+            # Day-off Policy
             elif "day-off" in reason or "sunday" in reason:
                 return "Day-off Policy"
-            elif "private room" in reason or "living" in reason or "abu dhabi" in reason:
+        
+            # Living Arrangement
+            elif "private room" in reason or "abu dhabi" in reason or "living arrangement" in reason:
                 return "Living Arrangement"
-            elif "nationality" in reason or "filipina" in reason or "ethiopian" in reason or "west african" in reason:
+        
+            # Nationality
+            elif any(nat in reason for nat in ["filipina", "ethiopian", "west african", "indonesian"]):
                 return "Nationality"
+        
+            # Cuisine
             elif "cuisine" in reason or "cooking" in reason:
                 return "Cuisine"
+        
+            # Special cases (elderly / special needs)
             elif "caregiving" in reason or "elderly" in reason or "special needs" in reason:
                 return "Special cases"
-            elif "experience" in reason and "kids" in reason:
+        
+            # Kids experience
+            elif "kids experience" in reason:
                 return "Kids experience"
-            elif "pet handling" in reason:
-                return "Pets handling"
+        
+            # Vegetarian / lifestyle
             elif "veg" in reason or "vegetarian" in reason:
                 return "Vegetarian / lifestyle"
+        
+            # Smoking
             elif "smoker" in reason or "smoking" in reason:
                 return "Smoking"
-            else:
-                return "Other"
         
-        # Collect all mismatch reasons per row (we already have explain_row_score giving "negative")
-        def get_mismatch_reasons(row):
-            return explain_row_score(row)["negative"]
+            return "Other"
         
-        all_mismatches = df.apply(lambda r: get_mismatch_reasons(r.to_dict()), axis=1)
-        mismatch_list = [reason for sublist in all_mismatches for reason in sublist]
+        # Collect all mismatch reasons across tagged placements
+        all_mismatches = []
+        for _, row in df.iterrows():
+            expl = explain_row_score(row.to_dict())
+            for reason in expl["negative"]:
+                all_mismatches.append(reason)
         
-        # Categorize into themes
-        grouped_mismatches = pd.Series(mismatch_list).map(categorize_mismatch_theme)
+        # Apply theme categorization
+        mismatch_df = pd.DataFrame({"reason": all_mismatches})
+        mismatch_df["theme"] = mismatch_df["reason"].apply(categorize_mismatch_theme)
         
-        # Aggregate counts by theme
-        mismatch_summary = grouped_mismatches.value_counts().reset_index()
-        mismatch_summary.columns = ["Theme", "Count"]
-        mismatch_summary["Percent"] = mismatch_summary["Count"] / mismatch_summary["Count"].sum() * 100
+        # Aggregate by theme
+        theme_summary = (
+            mismatch_df.groupby("theme")
+            .size()
+            .reset_index(name="count")
+            .sort_values("count", ascending=False)
+        )
+        
+        # Add percentages
+        theme_summary["percent"] = (theme_summary["count"] / theme_summary["count"].sum()) * 100
         
         # Plot
-        fig_mismatch_themes = px.bar(
-            mismatch_summary.sort_values("Count", ascending=True),
-            x="Count",
-            y="Theme",
+        fig_mismatch = px.bar(
+            theme_summary,
+            x="count",
+            y="theme",
             orientation="h",
-            text=mismatch_summary["Percent"].apply(lambda x: f"{x:.1f}%"),
-            labels={"Count": "Number of Cases", "Theme": "Mismatch Theme"},
-            title="Top Drivers of Mismatch Across Tagged Placements (By Theme)",
-            color="Count",
-            color_continuous_scale="Blues"
+            text=theme_summary["percent"].apply(lambda x: f"{x:.1f}%"),
+            color="count",
+            color_continuous_scale="Blues",
+            labels={"count": "Number of Cases", "theme": "Mismatch Theme"},
+            title="Top Drivers of Mismatch Across Tagged Placements (By Theme)"
         )
         
-        st.plotly_chart(fig_mismatch_themes, use_container_width=True)
-        
-        st.caption(
-            """
-            This view mirrors the **scoring structure**:  
-            - **Household Type, Pets, and Kids experience** are leading mismatch themes.  
-            - **Nationality and Cuisine preferences** create frequent alignment gaps.  
-            - Smaller but important drivers include **Day-off policies, Caregiving needs, Lifestyle (vegetarian), and Smoking**.  
-        
-            This structured lens makes it clear *which exact knobs drive misalignment*, so interventions can be directly targeted.
-            """
-        )
+        st.plotly_chart(fig_mismatch, use_container_width=True)
+
+       
