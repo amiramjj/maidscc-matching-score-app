@@ -667,7 +667,7 @@ if uploaded_file:
             title="Client Distribution Across Risk Buckets"
         )        
         
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig_buckets, use_container_width=True)
         
         st.caption(
             """
