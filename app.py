@@ -679,54 +679,6 @@ if uploaded_file:
             Every percentage point gained in medium-high fit matches translates into fewer costly replacements, stronger satisfaction, and more loyalty secured.
             """
         )
-
-        # -------------------------------
-        # Top Drivers of Mismatch
-        # -------------------------------
-        st.markdown("### ❌ Top Drivers of Mismatch")
-        
-        # Function to extract mismatch drivers for each row
-        def get_mismatch_reasons(row):
-            explanations = explain_row_score(row)
-            return explanations["negative"]
-        
-        # Collect mismatches for all tagged placements
-        all_mismatches = df.apply(lambda r: get_mismatch_reasons(r.to_dict()), axis=1)
-        
-        # Flatten list of mismatches
-        mismatch_list = [reason for sublist in all_mismatches for reason in sublist]
-        
-        # Aggregate counts
-        mismatch_counts = pd.Series(mismatch_list).value_counts().reset_index()
-        mismatch_counts.columns = ["Mismatch Reason", "Count"]
-        
-        # Convert to percentage of total mismatches
-        mismatch_counts["Percent"] = (mismatch_counts["Count"] / mismatch_counts["Count"].sum()) * 100
-        
-        # Plot
-        fig_mismatch = px.bar(
-            mismatch_counts.sort_values("Count", ascending=True),
-            x="Count",
-            y="Mismatch Reason",
-            orientation="h",
-            text=mismatch_counts["Percent"].apply(lambda x: f"{x:.1f}%"),
-            labels={"Count": "Number of Cases", "Mismatch Reason": "Driver"},
-            title="Top Drivers of Mismatch Across Tagged Placements",
-            color="Count",
-            color_continuous_scale="Blues"
-        )
-        
-        st.plotly_chart(fig_mismatch, use_container_width=True)
-        
-        st.caption(
-            """
-            This chart highlights the **most common reasons clients and maids misalign** in current placements.  
-            By targeting the top mismatch drivers (e.g., pets, household type, caregiving needs), we can unlock 
-            disproportionate improvements in fit, retention, and satisfaction.
-            """
-        )
-
-
         # -------------------------------
         # Top Drivers of Match & Mismatch
         # -------------------------------
@@ -734,34 +686,59 @@ if uploaded_file:
         
         from collections import Counter
         import plotly.express as px
-        
-        # --- Theme classifier (consistent with score logic) ---
+        # --- Theme classifier (consistent with score + explanation logic) ---
         def classify_theme(reason: str):
             r = reason.lower()
-            if "baby" in r or "kids" in r:
-                if "refuses" in r:
-                    return "Household Type"
-                else:
-                    return "Kids Experience"
-            elif "pet" in r or "cat" in r or "dog" in r:
-                return "Pets"
-            elif "day-off" in r or "sunday" in r:
-                return "Day-off Policy"
-            elif "private room" in r or "living" in r or "arrangement" in r:
-                return "Living Arrangement"
-            elif "nationality" in r:
-                return "Nationality"
-            elif "cuisine" in r or "cooking" in r:
-                return "Cuisine"
-            elif "special" in r or "caregiving" in r:
-                return "Special Cases"
-            elif "veg" in r or "vegetarian" in r:
-                return "Vegetarian / Lifestyle"
-            elif "smoker" in r:
-                return "Smoking"
-            else:
-                return None  # drop anything uncategorized
         
+            # Household Type
+            if "baby care" in r or "many kids" in r or "household type" in r:
+                return "Household Type"
+        
+            # Kids Experience (bonus logic in score)
+            if "kids experience" in r:
+                return "Kids Experience"
+        
+            # Pets (strong alignment)
+            if "cats" in r or "dogs" in r or "pet" in r:
+                if "refuses" in r:
+                    return "Pets"
+                elif "accepts" in r:
+                    return "Pets"
+        
+            # Pets Handling (bonus logic in score)
+            if "pet handling" in r:
+                return "Pets Handling"
+        
+            # Day-off Policy
+            if "day-off" in r or "sunday" in r:
+                return "Day-off Policy"
+        
+            # Living Arrangement
+            if "private room" in r or "living arrangement" in r:
+                return "Living Arrangement"
+        
+            # Nationality
+            if "nationality" in r or "prefers" in r:
+                return "Nationality"
+        
+            # Cuisine
+            if "cuisine" in r or "cooking" in r:
+                return "Cuisine"
+        
+            # Special Cases
+            if "caregiving" in r or "special needs" in r or "elderly" in r:
+                return "Special Cases"
+        
+            # Vegetarian / Lifestyle
+            if "veg" in r or "vegetarian" in r:
+                return "Vegetarian / Lifestyle"
+        
+            # Smoking
+            if "smoker" in r:
+                return "Smoking"
+        
+            return None  # drop neutrals or anything not in themes
+            
         # --- Collect reasons across all rows ---
         mismatch_reasons = []
         match_reasons = []
