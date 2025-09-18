@@ -684,19 +684,37 @@ if uploaded_file:
         # -------------------------------
         # Top Drivers of Mismatch
         # -------------------------------
-        st.markdown("### Top Drivers of Mismatch")
+        st.markdown("### ❌ Top Drivers of Mismatch")
 
-        # Collect mismatch reasons from all tagged rows
-        mismatch_counts = {}
-        feature_map = {
+        # Collect mismatch reasons from tagged rows
+        mismatch_counts = {
+            "household": 0,
+            "pets": 0,
+            "dayoff": 0,
+            "living": 0,
+            "nationality": 0,
+            "cuisine": 0,
+            "caregiving": 0,
+            "kids_experience": 0,
+            "pet_handling": 0,
+            "vegetarian": 0,
+            "smoking": 0,
+            "other": 0
+        }
+
+        feature_labels = {
             "household": "Household Type",
             "pets": "Pets",
-            "day-off": "Day-off Policy",
+            "dayoff": "Day-off Policy",
             "living": "Living Arrangement",
-            "nationality": "Nationality",
-            "cuisine": "Cuisine",
-            "caregiving": "Special Cases / Caregiving",
-            "smoking": "Smoking Preference"
+            "nationality": "Nationality Preference",
+            "cuisine": "Cuisine Preference",
+            "caregiving": "Caregiving / Special Cases",
+            "kids_experience": "Kids Experience",
+            "pet_handling": "Pet Handling",
+            "vegetarian": "Vegetarian / Lifestyle",
+            "smoking": "Smoking",
+            "other": "Other"
         }
 
         for _, row in df.iterrows():
@@ -704,51 +722,58 @@ if uploaded_file:
             for neg in explanations["negative"]:
                 neg_lower = neg.lower()
                 if "baby" in neg_lower or "kids" in neg_lower:
-                    key = "household"
+                    mismatch_counts["household"] += 1
                 elif "cat" in neg_lower or "dog" in neg_lower or "pet" in neg_lower:
-                    key = "pets"
+                    mismatch_counts["pets"] += 1
                 elif "day-off" in neg_lower or "sunday" in neg_lower:
-                    key = "day-off"
+                    mismatch_counts["dayoff"] += 1
                 elif "private room" in neg_lower or "living" in neg_lower:
-                    key = "living"
+                    mismatch_counts["living"] += 1
                 elif "prefers" in neg_lower and "maid" in neg_lower:
-                    key = "nationality"
+                    mismatch_counts["nationality"] += 1
                 elif "cuisine" in neg_lower or "cooking" in neg_lower:
-                    key = "cuisine"
+                    mismatch_counts["cuisine"] += 1
                 elif "caregiving" in neg_lower or "elderly" in neg_lower or "special" in neg_lower:
-                    key = "caregiving"
+                    mismatch_counts["caregiving"] += 1
+                elif "kids experience" in neg_lower:
+                    mismatch_counts["kids_experience"] += 1
+                elif "pet handling" in neg_lower:
+                    mismatch_counts["pet_handling"] += 1
+                elif "veg" in neg_lower:
+                    mismatch_counts["vegetarian"] += 1
                 elif "smoker" in neg_lower:
-                    key = "smoking"
+                    mismatch_counts["smoking"] += 1
                 else:
-                    key = "other"
+                    mismatch_counts["other"] += 1
 
-                mismatch_counts[key] = mismatch_counts.get(key, 0) + 1
-
-        # Prepare DataFrame
+        # Build DataFrame
         mismatch_df = pd.DataFrame([
-            {"Feature": feature_map.get(k, k), "Count": v}
-            for k, v in mismatch_counts.items()
+            {"Feature": feature_labels[k], "Count": v}
+            for k, v in mismatch_counts.items() if v > 0
         ]).sort_values("Count", ascending=False)
 
-        import plotly.express as px
+        # Add percentages
+        total_mismatches = mismatch_df["Count"].sum()
+        mismatch_df["Percent"] = (mismatch_df["Count"] / total_mismatches * 100).round(1)
+
+        # Plot
         fig_mismatch = px.bar(
             mismatch_df,
-            x="Count",
+            x="Percent",
             y="Feature",
             orientation="h",
-            color="Count",
+            text="Percent",
+            color="Percent",
             color_continuous_scale="Reds",
-            title="Top Drivers of Mismatch"
+            title="Top Drivers of Mismatch (%)"
         )
+        fig_mismatch.update_traces(texttemplate="%{text}%", textposition="outside")
         st.plotly_chart(fig_mismatch, use_container_width=True)
 
         st.caption(
             """
-            These are the **most frequent friction points** holding back stronger matches.
-            By addressing the top few (for example, Pets and Household Type mismatches),
-            we can immediately shift a large share of clients out of the low-fit bucket.
+            These are the **biggest friction points** pulling matches down.
+            By tackling the top 2–3 drivers (often Household Type, Pets, and Day-off Policy),
+            we can reduce the bulk of mismatches and shift more clients into the high-fit band.
             """
         )
-
-
-
