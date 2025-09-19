@@ -377,7 +377,7 @@ def explain_row_score(row):
         explanations["neutral"].append("Maid profile indicates smoking tolerance or unspecified.")
 
     return explanations
--------------------------------
+#-------------------------------
 # Streamlit UI
 # -------------------------------
 st.title("Maids.cc Matching Score App")
