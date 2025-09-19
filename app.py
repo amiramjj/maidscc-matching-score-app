@@ -385,9 +385,10 @@ def explain_row_score(row):
         explanations["neutral"].append("Client did not specify household type.")
 
     # ---------------- Pets ----------------
-    c_pets = row.get("clientmts_pet_type", "no_pets")
+    c_pets = row.get("clientmts_pet_type", "unspecified")
     m_pets = row.get("maidmts_pet_type", "unspecified")
-    if c_pets != "no_pets":
+    
+    if c_pets in ["cat", "dog", "both"]:
         if c_pets == "cat":
             if m_pets != "refuses_cat":
                 explanations["positive"].append("Client has cats, maid accepts cats.")
