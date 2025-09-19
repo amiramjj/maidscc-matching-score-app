@@ -403,45 +403,7 @@ def calculate_row_score_with_explanations(row):
         "negatives": negatives,
         "neutrals": neutrals
     }
-
-# -------------------------------
-# Apply Function to Dataset
-# -------------------------------
-df["explain_score"] = df.apply(lambda r: calculate_row_score_with_explanations(r.to_dict()), axis=1)
-df["match_score"] = df["explain_score"].apply(lambda x: x["score"])
-df["match_score_pct"] = df["match_score"] * 100
-
-# -------------------------------
-# Streamlit Explanation Section
-# -------------------------------
-st.markdown("### 🔍 Explanation of Matching Scores")
-
-row_index = st.number_input("Pick a row to explain:", min_value=0, max_value=len(df)-1, step=1)
-explanation = df.loc[row_index, "explain_score"]
-
-st.write(f"**Final Score:** {explanation['score']:.2f} ({explanation['score']*100:.1f}%)")
-
-st.markdown("**Positives:**")
-if explanation["positives"]:
-    for p in explanation["positives"]:
-        st.write(p)
-else:
-    st.write("None")
-
-st.markdown("**Negatives:**")
-if explanation["negatives"]:
-    for n in explanation["negatives"]:
-        st.write(n)
-else:
-    st.write("None")
-
-st.markdown("**Neutrals:**")
-if explanation["neutrals"]:
-    for nn in explanation["neutrals"]:
-        st.write(nn)
-else:
-    st.write("None")
-
+    
 #-------------------------------
 # Streamlit UI
 # -------------------------------
@@ -455,7 +417,7 @@ if uploaded_file:
     else:
         df = pd.read_excel(uploaded_file)
 
-    # Compute scores with explanations
+    # Compute scores with explanations (safe because df now exists)
     df["explain_score"] = df.apply(lambda r: calculate_row_score_with_explanations(r.to_dict()), axis=1)
     df["match_score"] = df["explain_score"].apply(lambda x: x["score"])
     df["match_score_pct"] = df["match_score"] * 100
@@ -474,32 +436,28 @@ if uploaded_file:
     with tab1:
         st.subheader("All Match Scores (tagged pairs)")
         st.dataframe(df[["client_name", "maid_id", "match_score_pct"]])
-    
-        # --- Explanation block for tagged pairs ---
+
         st.subheader("Explain a Tagged Pair Match")
         sel_idx = st.selectbox(
             "Choose a row", 
             df.index, 
             format_func=lambda i: f"{df.loc[i,'client_name']} ↔ {df.loc[i,'maid_id']}"
         )
-        sel_row = df.loc[sel_idx].to_dict()
-    
-        st.write(f"**Client:** {sel_row['client_name']}  \n**Maid:** {sel_row['maid_id']}  \n**Score:** {sel_row['match_score_pct']:.1f}%")
-    
-        explanations = calculate_row_score_with_explanations(sel_row)
-    
+        explanation = df.loc[sel_idx, "explain_score"]
+
+        st.write(f"**Final Score:** {explanation['score']:.2f} ({explanation['score']*100:.1f}%)")
+
         with st.expander("Positive Matches"):
-            for r in explanations["positives"]:
+            for r in explanation["positives"]:
                 st.write(f"- {r}")
-    
+
         with st.expander("Negative Mismatches"):
-            for r in explanations["negatives"]:
+            for r in explanation["negatives"]:
                 st.write(f"- {r}")
-    
+
         with st.expander("Neutral Notes"):
-            for r in explanations["neutrals"]:
+            for r in explanation["neutrals"]:
                 st.write(f"- {r}")
-   
     
     # -------------------------------
     # Tab 2: Best Maid per Client (Global Search)
