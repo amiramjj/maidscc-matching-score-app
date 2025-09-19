@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-# # -------------------------------
-# # Matching Score Function
-# # -------------------------------
+# -------------------------------
+# Matching Score Function
+# -------------------------------
 # def calculate_row_score(row):
 #     score = 0.0
 #     weight_strong = 0.6
@@ -117,6 +117,138 @@ import pandas as pd
 #         return score / max_score
 #     return 0.0
 
+def calculate_row_score(row):
+    # Weights
+    weight_strong = 0.6
+    weight_moderate = 0.3
+    weight_bonus = 0.1
+
+    # Track scores
+    base_score = 0.0
+    base_max = 0.0
+    bonus_score = 0.0
+    bonus_max = 0.0
+
+    # -------------------------------
+    # Base Criteria (Client-driven)
+    # -------------------------------
+
+    # Household Type
+    c_house = row["clientmts_household_type"]
+    m_house = row["maidmts_household_type"]
+    if c_house != "unspecified":
+        base_max += weight_strong
+        if (
+            (c_house == "baby" and m_house != "refuses_baby") or
+            (c_house == "many_kids" and m_house != "refuses_many_kids") or
+            (c_house == "baby_and_kids" and m_house != "refuses_baby_and_kids")
+        ):
+            base_score += weight_strong
+
+    # Pets
+    c_pets = row["clientmts_pet_type"]
+    m_pets = row["maidmts_pet_type"]
+    if c_pets != "no_pets":
+        base_max += weight_strong
+        if (
+            (c_pets == "cat" and m_pets != "refuses_cat") or
+            (c_pets == "dog" and m_pets != "refuses_dog") or
+            (c_pets == "both" and m_pets != "refuses_both_pets")
+        ):
+            base_score += weight_strong
+
+    # Day-off Policy
+    c_dayoff = row["clientmts_dayoff_policy"]
+    m_dayoff = row["maidmts_dayoff_policy"]
+    if c_dayoff != "unspecified":
+        base_max += weight_strong
+        if c_dayoff not in ["", "unspecified"] and m_dayoff != "refuses_fixed_sunday":
+            base_score += weight_strong
+
+    # Living Arrangement
+    c_living = row["clientmts_living_arrangement"]
+    m_living = row["maidmts_living_arrangement"]
+    if c_living != "unspecified":
+        base_max += weight_strong
+        if (
+            ("private_room" in c_living and "requires_no_private_room" not in m_living)
+            and ("abu_dhabi" in c_living and "refuses_abu_dhabi" not in m_living)
+        ):
+            base_score += weight_strong
+
+    # Nationality
+    if "maid_nationality" in row and row["clientmts_nationality_preference"] != "any":
+        base_max += weight_moderate
+        if row["clientmts_nationality_preference"] in str(row["maid_nationality"]):
+            base_score += weight_moderate
+
+    # Cuisine
+    c_cuisine = row["clientmts_cuisine_preference"]
+    m_cooking = str(row.get("cooking_group", "not_specified"))
+    if c_cuisine != "unspecified" and m_cooking != "not_specified":
+        base_max += weight_moderate
+        c_set = set(c_cuisine.split("+"))
+        m_set = set(m_cooking.split("+"))
+        if c_set & m_set:
+            base_score += weight_moderate
+
+    # -------------------------------
+    # Bonus Criteria (Nice-to-have)
+    # -------------------------------
+
+    # Special cases
+    c_special = row["clientmts_special_cases"]
+    m_care = row["maidpref_caregiving_profile"]
+    if c_special != "unspecified":
+        bonus_max += weight_bonus
+        if (
+            (c_special == "elderly" and m_care in ["elderly_experienced", "elderly_and_special"]) or
+            (c_special == "special_needs" and m_care in ["special_needs", "elderly_and_special"]) or
+            (c_special == "elderly_and_special" and m_care == "elderly_and_special")
+        ):
+            bonus_score += weight_bonus
+
+    # Kids experience
+    if c_house in ["baby", "many_kids", "baby_and_kids"]:
+        bonus_max += weight_bonus
+        if (
+            (c_house == "baby" and row["maidpref_kids_experience"] in ["lessthan2", "both"]) or
+            (c_house == "many_kids" and row["maidpref_kids_experience"] in ["above2", "both"]) or
+            (c_house == "baby_and_kids" and row["maidpref_kids_experience"] == "both")
+        ):
+            bonus_score += weight_bonus
+
+    # Pets handling
+    if c_pets != "no_pets":
+        bonus_max += weight_bonus
+        if (
+            (c_pets == "cat" and row["maidpref_pet_handling"] in ["cats", "both"]) or
+            (c_pets == "dog" and row["maidpref_pet_handling"] in ["dogs", "both"]) or
+            (c_pets == "both" and row["maidpref_pet_handling"] == "both")
+        ):
+            bonus_score += weight_bonus
+
+    # Vegetarian / lifestyle
+    if "veg" in c_cuisine:
+        bonus_max += weight_bonus
+        if "veg_friendly" in str(row["maidpref_personality"]):
+            bonus_score += weight_bonus
+
+    # Smoking (always treated as bonus)
+    bonus_max += weight_bonus
+    if row["maidpref_smoking"] == "non_smoker":
+        bonus_score += weight_bonus
+
+    # -------------------------------
+    # Final Calculation
+    # -------------------------------
+    base_pct = base_score / base_max if base_max > 0 else 0.0
+    bonus_pct = bonus_score / bonus_max if bonus_max > 0 else 0.0
+
+    # Limit bonus contribution (max 20% of final)
+    final_score = base_pct + min(bonus_pct * 0.2, 0.2)
+
+    return final_score
 
 # #-------------------------------
 # #Expanded Explanation Function
@@ -224,210 +356,172 @@ import pandas as pd
 
 #     return explanations
 
-import streamlit as st
-import pandas as pd
-
 # -------------------------------
-# Matching Score Function with Explanations
+# Expanded Explanation Function (Aligned with Scoring)
 # -------------------------------
-def calculate_row_score_with_explanations(row):
-    score = 0.0
-    weight_strong = 0.6
-    weight_moderate = 0.3
-    weight_bonus = 0.1
-    max_score = 0.0
+def explain_row_score(row):
+    explanations = {"positive": [], "negative": [], "neutral": []}
 
-    positives, negatives, neutrals = [], [], []
-
-    # Household Type
+    # ---------------- Household Type ----------------
     c_house = row.get("clientmts_household_type", "unspecified")
     m_house = row.get("maidmts_household_type", "unspecified")
     if c_house != "unspecified":
-        max_score += weight_strong
-        if (
-            (c_house == "baby" and m_house != "refuses_baby") or
-            (c_house == "many_kids" and m_house != "refuses_many_kids") or
-            (c_house == "baby_and_kids" and m_house != "refuses_baby_and_kids")
-        ):
-            score += weight_strong
-            positives.append("✅ Household Type matched")
-        elif m_house == "unspecified":
-            neutrals.append("~ Household Type not specified by maid")
-        else:
-            negatives.append("❌ Household Type mismatch")
+        if c_house == "baby":
+            if m_house != "refuses_baby":
+                explanations["positive"].append("Client wants baby care, maid accepts it.")
+            else:
+                explanations["negative"].append("Client wants baby care, maid refuses it.")
+        elif c_house == "many_kids":
+            if m_house != "refuses_many_kids":
+                explanations["positive"].append("Client has many kids, maid accepts it.")
+            else:
+                explanations["negative"].append("Client has many kids, maid refuses it.")
+        elif c_house == "baby_and_kids":
+            if m_house != "refuses_baby_and_kids":
+                explanations["positive"].append("Client wants baby + kids care, maid accepts it.")
+            else:
+                explanations["negative"].append("Client wants baby + kids care, maid refuses it.")
     else:
-        neutrals.append("~ Household Type not specified by client")
+        explanations["neutral"].append("Client did not specify household type.")
 
-    # Pets
-    c_pets = row.get("clientmts_pet_type", "unspecified")
+    # ---------------- Pets ----------------
+    c_pets = row.get("clientmts_pet_type", "no_pets")
     m_pets = row.get("maidmts_pet_type", "unspecified")
-    if c_pets != "unspecified" and c_pets != "no_pets":
-        max_score += weight_strong
-        if (
-            (c_pets == "cat" and m_pets != "refuses_cat") or
-            (c_pets == "dog" and m_pets != "refuses_dog") or
-            (c_pets == "both" and m_pets != "refuses_both_pets")
-        ):
-            score += weight_strong
-            positives.append("✅ Pets matched")
-        elif m_pets == "unspecified":
-            neutrals.append("~ Pets preference not specified by maid")
-        else:
-            negatives.append("❌ Pets mismatch")
+    if c_pets != "no_pets":
+        if c_pets == "cat":
+            if m_pets != "refuses_cat":
+                explanations["positive"].append("Client has cats, maid accepts cats.")
+            else:
+                explanations["negative"].append("Client has cats, maid refuses cats.")
+        elif c_pets == "dog":
+            if m_pets != "refuses_dog":
+                explanations["positive"].append("Client has dogs, maid accepts dogs.")
+            else:
+                explanations["negative"].append("Client has dogs, maid refuses dogs.")
+        elif c_pets == "both":
+            if m_pets != "refuses_both_pets":
+                explanations["positive"].append("Client has cats & dogs, maid accepts both.")
+            else:
+                explanations["negative"].append("Client has cats & dogs, maid refuses one or both.")
     else:
-        neutrals.append("~ Pets not specified by client")
+        explanations["neutral"].append("Client did not specify pets.")
 
-    # Day-off Policy
+    # ---------------- Day-off Policy ----------------
     c_dayoff = row.get("clientmts_dayoff_policy", "unspecified")
     m_dayoff = row.get("maidmts_dayoff_policy", "unspecified")
     if c_dayoff != "unspecified":
-        max_score += weight_strong
         if m_dayoff != "refuses_fixed_sunday":
-            score += weight_strong
-            positives.append("✅ Day-off Policy matched")
-        elif m_dayoff == "unspecified":
-            neutrals.append("~ Day-off Policy not specified by maid")
+            explanations["positive"].append("Client specified day-off, maid is flexible.")
         else:
-            negatives.append("❌ Day-off Policy mismatch")
+            explanations["negative"].append("Client specified day-off, maid refuses fixed Sunday.")
     else:
-        neutrals.append("~ Day-off Policy not specified by client")
+        explanations["neutral"].append("Client did not specify day-off policy.")
 
-    # Living Arrangement
+    # ---------------- Living Arrangement ----------------
     c_living = row.get("clientmts_living_arrangement", "unspecified")
     m_living = row.get("maidmts_living_arrangement", "unspecified")
     if c_living != "unspecified":
-        max_score += weight_strong
-        if (
-            ("private_room" in c_living and "requires_no_private_room" not in m_living)
-            or ("abu_dhabi" in c_living and "refuses_abu_dhabi" not in m_living)
-        ):
-            score += weight_strong
-            positives.append("✅ Living Arrangement matched")
-        elif m_living == "unspecified":
-            neutrals.append("~ Living Arrangement not specified by maid")
-        else:
-            negatives.append("❌ Living Arrangement mismatch")
-    else:
-        neutrals.append("~ Living Arrangement not specified by client")
-
-    # Nationality
-    c_nat = row.get("clientmts_nationality_preference", "any")
-    m_nat = row.get("maid_nationality", "unspecified")
-    if c_nat != "any" and c_nat != "unspecified":
-        max_score += weight_moderate
-        if c_nat in str(m_nat):
-            score += weight_moderate
-            positives.append("✅ Nationality matched")
-        elif m_nat == "unspecified":
-            neutrals.append("~ Nationality not specified by maid")
-        else:
-            negatives.append("❌ Nationality mismatch")
-    else:
-        neutrals.append("~ Nationality not specified by client")
-
-    # Cuisine
-    c_cuisine = row.get("clientmts_cuisine_preference", "unspecified")
-    m_cooking = str(row.get("cooking_group", "unspecified"))
-    if c_cuisine != "unspecified":
-        max_score += weight_moderate
-        if m_cooking != "unspecified":
-            c_set = set(c_cuisine.split("+"))
-            m_set = set(m_cooking.split("+"))
-            if c_set & m_set:
-                score += weight_moderate
-                positives.append(f"✅ Cuisine matched ({', '.join(c_set & m_set)})")
+        if "private_room" in str(c_living):
+            if "requires_no_private_room" not in str(m_living):
+                explanations["positive"].append("Client requires private room, maid accepts it.")
             else:
-                negatives.append("❌ Cuisine mismatch")
-        else:
-            neutrals.append("~ Cuisine not specified by maid")
+                explanations["negative"].append("Client requires private room, maid refuses it.")
+        if "abu_dhabi" in str(c_living):
+            if "refuses_abu_dhabi" not in str(m_living):
+                explanations["positive"].append("Client location Abu Dhabi, maid accepts it.")
+            else:
+                explanations["negative"].append("Client location Abu Dhabi, maid refuses it.")
     else:
-        neutrals.append("~ Cuisine not specified by client")
+        explanations["neutral"].append("Client did not specify living arrangement.")
 
-    # Special cases
+    # ---------------- Nationality ----------------
+    c_nat = row.get("clientmts_nationality_preference", "any")
+    m_nat = str(row.get("maid_nationality", "unspecified"))
+    if c_nat != "any":
+        if c_nat in m_nat:
+            explanations["positive"].append(f"Client prefers {c_nat}, maid matches it.")
+        else:
+            explanations["negative"].append(f"Client prefers {c_nat}, maid does not match.")
+    else:
+        explanations["neutral"].append("Client did not specify nationality preference.")
+
+    # ---------------- Cuisine ----------------
+    c_cuisine = row.get("clientmts_cuisine_preference", "unspecified")
+    m_cooking = str(row.get("cooking_group", "not_specified"))
+    if c_cuisine != "unspecified" and m_cooking != "not_specified":
+        c_set = set(str(c_cuisine).split("+"))
+        m_set = set(m_cooking.split("+"))
+        overlap = c_set & m_set
+        if overlap:
+            explanations["positive"].append(f"Client cuisine preference matches maid skills: {', '.join(overlap)}.")
+        else:
+            explanations["negative"].append("Client cuisine preference does not match maid cooking skills.")
+    else:
+        explanations["neutral"].append("Client or maid did not specify cuisine preference.")
+
+    # ---------------- Special Cases ----------------
     c_special = row.get("clientmts_special_cases", "unspecified")
     m_care = row.get("maidpref_caregiving_profile", "unspecified")
     if c_special != "unspecified":
-        max_score += weight_bonus
         if (
             (c_special == "elderly" and m_care in ["elderly_experienced", "elderly_and_special"]) or
             (c_special == "special_needs" and m_care in ["special_needs", "elderly_and_special"]) or
             (c_special == "elderly_and_special" and m_care == "elderly_and_special")
         ):
-            score += weight_bonus
-            positives.append("✅ Special Cases matched")
-        elif m_care == "unspecified":
-            neutrals.append("~ Special Cases not specified by maid")
+            explanations["positive"].append("Client requires caregiving, maid has relevant experience.")
         else:
-            negatives.append("❌ Special Cases mismatch")
+            explanations["negative"].append("Client requires caregiving, maid lacks required experience.")
     else:
-        neutrals.append("~ Special Cases not specified by client")
+        explanations["neutral"].append("Client did not specify caregiving needs.")
 
-    # Kids experience
+    # ---------------- Kids Experience (Bonus) ----------------
     if c_house in ["baby", "many_kids", "baby_and_kids"]:
-        max_score += weight_bonus
-        exp = row.get("maidpref_kids_experience", "unspecified")
+        kids_exp = row.get("maidpref_kids_experience", "unspecified")
         if (
-            (c_house == "baby" and exp in ["lessthan2", "both"]) or
-            (c_house == "many_kids" and exp in ["above2", "both"]) or
-            (c_house == "baby_and_kids" and exp == "both")
+            (c_house == "baby" and kids_exp in ["lessthan2", "both"]) or
+            (c_house == "many_kids" and kids_exp in ["above2", "both"]) or
+            (c_house == "baby_and_kids" and kids_exp == "both")
         ):
-            score += weight_bonus
-            positives.append("✅ Kids experience matched")
-        elif exp == "unspecified":
-            neutrals.append("~ Kids experience not specified by maid")
+            explanations["positive"].append("Maid has the required kids experience.")
         else:
-            negatives.append("❌ Kids experience mismatch")
+            explanations["negative"].append("Maid lacks required kids experience.")
     else:
-        neutrals.append("~ Kids experience not applicable")
+        explanations["neutral"].append("Kids experience not applicable (client did not specify).")
 
-    # Pets handling
-    if c_pets != "unspecified" and c_pets != "no_pets":
-        max_score += weight_bonus
-        pref = row.get("maidpref_pet_handling", "unspecified")
+    # ---------------- Pets Handling (Bonus) ----------------
+    if c_pets != "no_pets":
+        pet_handling = row.get("maidpref_pet_handling", "unspecified")
         if (
-            (c_pets == "cat" and pref in ["cats", "both"]) or
-            (c_pets == "dog" and pref in ["dogs", "both"]) or
-            (c_pets == "both" and pref == "both")
+            (c_pets == "cat" and pet_handling in ["cats", "both"]) or
+            (c_pets == "dog" and pet_handling in ["dogs", "both"]) or
+            (c_pets == "both" and pet_handling == "both")
         ):
-            score += weight_bonus
-            positives.append("✅ Pets handling matched")
-        elif pref == "unspecified":
-            neutrals.append("~ Pets handling not specified by maid")
+            explanations["positive"].append("Maid has matching pet handling experience.")
         else:
-            negatives.append("❌ Pets handling mismatch")
+            explanations["negative"].append("Maid lacks required pet handling experience.")
     else:
-        neutrals.append("~ Pets handling not specified by client")
+        explanations["neutral"].append("Pet handling not applicable (client has no pets).")
 
-    # Vegetarian / lifestyle
-    if "veg" in c_cuisine:
-        max_score += weight_bonus
-        if "veg_friendly" in str(row.get("maidpref_personality", "")):
-            score += weight_bonus
-            positives.append("✅ Vegetarian / Lifestyle matched")
+    # ---------------- Vegetarian / Lifestyle (Bonus) ----------------
+    if "veg" in str(c_cuisine):
+        personality = str(row.get("maidpref_personality", ""))
+        if "veg_friendly" in personality:
+            explanations["positive"].append("Maid is vegetarian-friendly, matches client lifestyle.")
         else:
-            negatives.append("❌ Vegetarian / Lifestyle mismatch")
+            explanations["negative"].append("Client requires vegetarian-friendly, maid not aligned.")
     else:
-        neutrals.append("~ Vegetarian / Lifestyle not specified by client")
+        explanations["neutral"].append("Vegetarian/lifestyle not applicable.")
 
-    # Smoking (always checked)
-    max_score += weight_bonus
-    if row.get("maidpref_smoking", "unspecified") == "non_smoker":
-        score += weight_bonus
-        positives.append("✅ Non-smoker matched")
-    elif row.get("maidpref_smoking", "unspecified") == "unspecified":
-        neutrals.append("~ Smoking preference not specified by maid")
+    # ---------------- Smoking (Bonus) ----------------
+    m_smoke = row.get("maidpref_smoking", "unspecified")
+    if m_smoke == "non_smoker":
+        explanations["positive"].append("Maid is a non-smoker.")
+    elif m_smoke == "smoker":
+        explanations["negative"].append("Maid is a smoker.")
     else:
-        negatives.append("❌ Maid is a smoker")
+        explanations["neutral"].append("Maid smoking preference not specified.")
 
-    # Normalize score
-    normalized_score = score / max_score if max_score > 0 else 0.0
-
-    return {
-        "score": normalized_score,
-        "positives": positives,
-        "negatives": negatives,
-        "neutrals": neutrals
-    }
+    return explanations
 
 #-------------------------------
 # Streamlit UI
@@ -442,9 +536,8 @@ if uploaded_file:
     else:
         df = pd.read_excel(uploaded_file)
 
-    # Compute scores with explanations (safe because df now exists)
-    df["explain_score"] = df.apply(lambda r: calculate_row_score_with_explanations(r.to_dict()), axis=1)
-    df["match_score"] = df["explain_score"].apply(lambda x: x["score"])
+    # Compute scores for tagged pairs
+    df["match_score"] = df.apply(calculate_row_score, axis=1)
     df["match_score_pct"] = df["match_score"] * 100
 
     # Tabs
@@ -462,95 +555,92 @@ if uploaded_file:
         st.subheader("All Match Scores (tagged pairs)")
         st.dataframe(df[["client_name", "maid_id", "match_score_pct"]])
 
+        # --- Explanation block for tagged pairs ---
         st.subheader("Explain a Tagged Pair Match")
-        sel_idx = st.selectbox(
-            "Choose a row", 
-            df.index, 
-            format_func=lambda i: f"{df.loc[i,'client_name']} ↔ {df.loc[i,'maid_id']}"
-        )
-        explanation = df.loc[sel_idx, "explain_score"]
+        sel_idx = st.selectbox("Choose a row", df.index, format_func=lambda i: f"{df.loc[i,'client_name']} ↔ {df.loc[i,'maid_id']}")
+        sel_row = df.loc[sel_idx].to_dict()
 
-        st.write(f"**Final Score:** {explanation['score']:.2f} ({explanation['score']*100:.1f}%)")
+        st.write(f"**Client:** {sel_row['client_name']}  \n**Maid:** {sel_row['maid_id']}  \n**Score:** {sel_row['match_score_pct']:.1f}%")
+
+        explanations = explain_row_score(sel_row)
 
         with st.expander("Positive Matches"):
-            for r in explanation["positives"]:
+            for r in explanations["positive"]:
                 st.write(f"- {r}")
 
         with st.expander("Negative Mismatches"):
-            for r in explanation["negatives"]:
+            for r in explanations["negative"]:
                 st.write(f"- {r}")
 
         with st.expander("Neutral Notes"):
-            for r in explanation["neutrals"]:
+            for r in explanations["neutral"]:
                 st.write(f"- {r}")
-    
+
+
     # -------------------------------
     # Tab 2: Best Maid per Client (Global Search)
     # -------------------------------
     with tab2:
-            st.subheader("Best Maid per Client (Global Search Across All Maids)")
+        st.subheader("Best Maid per Client (Global Search Across All Maids)")
+
+        @st.cache_data
+        def compute_best_matches(df):
+            clients_df = df.drop_duplicates(subset=["client_name"]).copy()
+            maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
         
-            @st.cache_data
-            def compute_best_matches(df):
-                clients_df = df.drop_duplicates(subset=["client_name"]).copy()
-                maids_df = df.drop_duplicates(subset=["maid_id"]).copy()
-            
-                best_matches = []
-            
-                for _, client_row in clients_df.iterrows():
-                    best_score = -1
-                    best_maid = None
-                    best_combined = None
-                    best_explanation = None
-            
-                    for _, maid_row in maids_df.iterrows():
-                        # Build a combined row: clientmts_* from client, maidmts_/maidpref_ from maid
-                        combined = {}
-                        for col in df.columns:
-                            if col.startswith("clientmts_"):
-                                combined[col] = client_row[col]
-                            elif col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_"):
-                                combined[col] = maid_row[col]
-            
-                        explanation = calculate_row_score_with_explanations(combined)
-                        score = explanation["score"]
-            
-                        if score > best_score:
-                            best_score = score
-                            best_maid = maid_row["maid_id"]
-                            best_combined = combined
-                            best_explanation = explanation
-            
-                    best_matches.append({
-                        "client_name": client_row["client_name"],
-                        "best_maid_id": best_maid,
-                        "match_score_pct": best_score * 100,
-                        "combined": best_combined,
-                        "explanation": best_explanation
-                    })
-            
-                return pd.DataFrame(best_matches)
+            best_matches = []
         
-            best_client_df = compute_best_matches(df)
-            st.dataframe(best_client_df[["client_name", "best_maid_id", "match_score_pct"]])
+            for _, client_row in clients_df.iterrows():
+                best_score = -1
+                best_maid = None
+                best_combined = None
         
-            # Explanation
-            st.subheader("Explain a Best Match (Global Search)")
-            client_sel = st.selectbox("Choose Client", best_client_df["client_name"].unique())
-            best_row = best_client_df[best_client_df["client_name"] == client_sel].iloc[0]
+                for _, maid_row in maids_df.iterrows():
+                    # Build a combined row: clientmts_* from client, maidmts_/maidpref_ from maid
+                    combined = {}
+                    for col in df.columns:
+                        if col.startswith("clientmts_"):
+                            combined[col] = client_row[col]
+                        elif col.startswith("maidmts_") or col.startswith("maidpref_") or col.startswith("maid_"):
+                            combined[col] = maid_row[col]
         
-            st.write(f"**Best Maid:** {best_row['best_maid_id']}  \n**Match Score:** {best_row['match_score_pct']:.1f}%")
+                    score = calculate_row_score(combined)
+                    if score > best_score:
+                        best_score = score
+                        best_maid = maid_row["maid_id"]
+                        best_combined = combined
         
-            explanations = best_row["explanation"]
-            with st.expander("Positive Matches"):
-                for r in explanations["positives"]:
-                    st.write(f"- {r}")
-            with st.expander("Negative Mismatches"):
-                for r in explanations["negatives"]:
-                    st.write(f"- {r}")
-            with st.expander("Neutral Notes"):
-                for r in explanations["neutrals"]:
-                    st.write(f"- {r}")
+                best_matches.append({
+                    "client_name": client_row["client_name"],
+                    "best_maid_id": best_maid,
+                    "match_score_pct": best_score * 100,
+                    "combined": best_combined
+                })
+        
+            return pd.DataFrame(best_matches)
+
+
+        best_client_df = compute_best_matches(df)
+        st.dataframe(best_client_df[["client_name", "best_maid_id", "match_score_pct"]])
+
+        # Explanation
+        st.subheader("Explain a Best Match (Global Search)")
+        client_sel = st.selectbox("Choose Client", best_client_df["client_name"].unique())
+        best_row = best_client_df[best_client_df["client_name"] == client_sel].iloc[0]
+
+        st.write(f"**Best Maid:** {best_row['best_maid_id']}  \n**Match Score:** {best_row['match_score_pct']:.1f}%")
+
+        explanations = explain_row_score(best_row["combined"])
+        with st.expander("Positive Matches"):
+            for r in explanations["positive"]:
+                st.write(f"- {r}")
+        with st.expander("Negative Mismatches"):
+            for r in explanations["negative"]:
+                st.write(f"- {r}")
+        with st.expander("Neutral Notes"):
+            for r in explanations["neutral"]:
+                st.write(f"- {r}")
+
 
     # -------------------------------
     # Tab 3: Maid Profile Explorer
