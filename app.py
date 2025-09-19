@@ -272,9 +272,9 @@ def calculate_row_score(row):
 
 #     return explanations
 
--------------------------------
-Expanded Explanation Function
--------------------------------
+#-------------------------------
+#Expanded Explanation Function
+#-------------------------------
 def explain_row_score(row):
     explanations = {"positive": [], "negative": [], "neutral": []}
 
