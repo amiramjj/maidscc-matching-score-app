@@ -117,164 +117,9 @@ def calculate_row_score(row):
         return score / max_score
     return 0.0
 
-# -------------------------------
-# Expanded Explanation Function (updated)
-# -------------------------------
-def explain_row_score(row):
-    explanations = {"positive": [], "negative": [], "neutral": []}
-
-    # Household
-    c_house = row.get("clientmts_household_type", "unspecified")
-    m_house = row.get("maidmts_household_type", "unspecified")
-    if c_house != "unspecified":
-        if c_house == "baby" and m_house != "refuses_baby":
-            explanations["positive"].append("Client wants baby care, maid accepts it.")
-        elif c_house == "baby":
-            explanations["negative"].append("Client wants baby care, maid refuses it.")
-        elif c_house == "many_kids" and m_house != "refuses_many_kids":
-            explanations["positive"].append("Client has many kids, maid accepts it.")
-        elif c_house == "many_kids":
-            explanations["negative"].append("Client has many kids, maid refuses it.")
-        elif c_house == "baby_and_kids" and m_house != "refuses_baby_and_kids":
-            explanations["positive"].append("Client has baby and kids, maid accepts both.")
-        elif c_house == "baby_and_kids":
-            explanations["negative"].append("Client has baby and kids, maid refuses this household type.")
-    else:
-        explanations["neutral"].append("Client did not specify household type.")
-
-    # Pets
-    c_pets = row.get("clientmts_pet_type", "no_pets")
-    m_pets = row.get("maidmts_pet_type", "unspecified")
-    if c_pets != "no_pets":
-        if c_pets == "cat" and m_pets != "refuses_cat":
-            explanations["positive"].append("Client has cats, maid accepts cats.")
-        elif c_pets == "cat":
-            explanations["negative"].append("Client has cats, maid refuses cats.")
-        elif c_pets == "dog" and m_pets != "refuses_dog":
-            explanations["positive"].append("Client has dogs, maid accepts dogs.")
-        elif c_pets == "dog":
-            explanations["negative"].append("Client has dogs, maid refuses dogs.")
-        elif c_pets == "both" and m_pets != "refuses_both_pets":
-            explanations["positive"].append("Client has cats and dogs, maid accepts both.")
-        elif c_pets == "both":
-            explanations["negative"].append("Client has cats and dogs, maid refuses pets.")
-    else:
-        explanations["neutral"].append("Client did not specify pets.")
-
-    # Day-off
-    c_dayoff = row.get("clientmts_dayoff_policy", "unspecified")
-    m_dayoff = row.get("maidmts_dayoff_policy", "unspecified")
-    if c_dayoff != "unspecified":
-        if m_dayoff != "refuses_fixed_sunday":
-            explanations["positive"].append("Client specified day-off, maid accepts flexible policy.")
-        else:
-            explanations["negative"].append("Client specified day-off, maid refuses fixed Sunday.")
-    else:
-        explanations["neutral"].append("Client did not specify day-off policy.")
-
-    # Living arrangement
-    c_living = row.get("clientmts_living_arrangement", "unspecified")
-    m_living = row.get("maidmts_living_arrangement", "unspecified")
-    if c_living != "unspecified":
-        if ("private_room" in str(c_living) and "requires_no_private_room" not in str(m_living)):
-            explanations["positive"].append("Client requires private room, maid accepts it.")
-        elif "private_room" in str(c_living):
-            explanations["negative"].append("Client requires private room, maid refuses it.")
-        elif ("abu_dhabi" in str(c_living) and "refuses_abu_dhabi" not in str(m_living)):
-            explanations["positive"].append("Client requires Abu Dhabi placement, maid accepts it.")
-        elif "abu_dhabi" in str(c_living):
-            explanations["negative"].append("Client requires Abu Dhabi placement, maid refuses it.")
-    else:
-        explanations["neutral"].append("Client did not specify living arrangement.")
-
-    # Nationality
-    c_nat = row.get("clientmts_nationality_preference", "any")
-    m_nat = str(row.get("maid_nationality", "unspecified"))
-    if c_nat != "any":
-        if c_nat in m_nat:
-            explanations["positive"].append(f"Client prefers {c_nat}, maid matches it.")
-        else:
-            explanations["negative"].append(f"Client prefers {c_nat}, maid does not match.")
-    else:
-        explanations["neutral"].append("Client did not specify nationality preference.")
-
-    # Cuisine
-    c_cuisine = row.get("clientmts_cuisine_preference", "unspecified")
-    m_cooking = str(row.get("cooking_group", "not_specified"))
-    if c_cuisine != "unspecified" and m_cooking != "not_specified":
-        c_set = set(str(c_cuisine).split("+"))
-        m_set = set(m_cooking.split("+"))
-        if c_set & m_set:
-            explanations["positive"].append("Client cuisine preference matches maid cooking skills.")
-        else:
-            explanations["negative"].append("Client cuisine preference does not match maid cooking skills.")
-    else:
-        explanations["neutral"].append("Client did not specify cuisine preference.")
-
-    # Special cases
-    c_special = row.get("clientmts_special_cases", "unspecified")
-    m_care = row.get("maidpref_caregiving_profile", "unspecified")
-    if c_special != "unspecified":
-        if (
-            (c_special == "elderly" and m_care in ["elderly_experienced", "elderly_and_special"]) or
-            (c_special == "special_needs" and m_care in ["special_needs", "elderly_and_special"]) or
-            (c_special == "elderly_and_special" and m_care == "elderly_and_special")
-        ):
-            explanations["positive"].append("Client requires caregiving, maid has relevant experience.")
-        else:
-            explanations["negative"].append("Client requires caregiving, maid lacks the required experience.")
-    else:
-        explanations["neutral"].append("Client did not specify caregiving needs.")
-
-    # Kids experience (bonus alignment)
-    if c_house in ["baby", "many_kids", "baby_and_kids"]:
-        m_kids_exp = row.get("maidpref_kids_experience", "unspecified")
-        if (
-            (c_house == "baby" and m_kids_exp in ["lessthan2", "both"]) or
-            (c_house == "many_kids" and m_kids_exp in ["above2", "both"]) or
-            (c_house == "baby_and_kids" and m_kids_exp == "both")
-        ):
-            explanations["positive"].append("Client household requires kids experience, maid has relevant experience.")
-        else:
-            explanations["negative"].append("Client household requires kids experience, maid lacks the required experience.")
-    else:
-        explanations["neutral"].append("Client did not specify kids experience.")
-
-    # Pets handling (bonus alignment)
-    if c_pets != "no_pets":
-        m_pet_handling = row.get("maidpref_pet_handling", "unspecified")
-        if (
-            (c_pets == "cat" and m_pet_handling in ["cats", "both"]) or
-            (c_pets == "dog" and m_pet_handling in ["dogs", "both"]) or
-            (c_pets == "both" and m_pet_handling == "both")
-        ):
-            explanations["positive"].append("Client has pets, maid is comfortable handling them.")
-        else:
-            explanations["negative"].append("Client has pets, maid is not comfortable handling them.")
-    else:
-        explanations["neutral"].append("Client did not specify pet handling needs.")
-
-    # Vegetarian / lifestyle (bonus alignment)
-    if "veg" in str(c_cuisine):
-        if "veg_friendly" in str(row.get("maidpref_personality", "")):
-            explanations["positive"].append("Client prefers vegetarian cooking, maid is veg-friendly.")
-        else:
-            explanations["negative"].append("Client prefers vegetarian cooking, maid is not veg-friendly.")
-    else:
-        explanations["neutral"].append("Client did not specify vegetarian lifestyle.")
-
-    # Smoking
-    m_smoke = row.get("maidpref_smoking", "unspecified")
-    if m_smoke == "non_smoker":
-        explanations["positive"].append("Maid is a non-smoker.")
-    else:
-        explanations["neutral"].append("Maid profile indicates smoking tolerance or unspecified.")
-
-    return explanations
-
-# -------------------------------
-# Expanded Explanation Function
-# -------------------------------
+# # -------------------------------
+# # Expanded Explanation Function (updated)
+# # -------------------------------
 # def explain_row_score(row):
 #     explanations = {"positive": [], "negative": [], "neutral": []}
 
@@ -290,6 +135,10 @@ def explain_row_score(row):
 #             explanations["positive"].append("Client has many kids, maid accepts it.")
 #         elif c_house == "many_kids":
 #             explanations["negative"].append("Client has many kids, maid refuses it.")
+#         elif c_house == "baby_and_kids" and m_house != "refuses_baby_and_kids":
+#             explanations["positive"].append("Client has baby and kids, maid accepts both.")
+#         elif c_house == "baby_and_kids":
+#             explanations["negative"].append("Client has baby and kids, maid refuses this household type.")
 #     else:
 #         explanations["neutral"].append("Client did not specify household type.")
 
@@ -305,6 +154,10 @@ def explain_row_score(row):
 #             explanations["positive"].append("Client has dogs, maid accepts dogs.")
 #         elif c_pets == "dog":
 #             explanations["negative"].append("Client has dogs, maid refuses dogs.")
+#         elif c_pets == "both" and m_pets != "refuses_both_pets":
+#             explanations["positive"].append("Client has cats and dogs, maid accepts both.")
+#         elif c_pets == "both":
+#             explanations["negative"].append("Client has cats and dogs, maid refuses pets.")
 #     else:
 #         explanations["neutral"].append("Client did not specify pets.")
 
@@ -325,8 +178,12 @@ def explain_row_score(row):
 #     if c_living != "unspecified":
 #         if ("private_room" in str(c_living) and "requires_no_private_room" not in str(m_living)):
 #             explanations["positive"].append("Client requires private room, maid accepts it.")
-#         else:
+#         elif "private_room" in str(c_living):
 #             explanations["negative"].append("Client requires private room, maid refuses it.")
+#         elif ("abu_dhabi" in str(c_living) and "refuses_abu_dhabi" not in str(m_living)):
+#             explanations["positive"].append("Client requires Abu Dhabi placement, maid accepts it.")
+#         elif "abu_dhabi" in str(c_living):
+#             explanations["negative"].append("Client requires Abu Dhabi placement, maid refuses it.")
 #     else:
 #         explanations["neutral"].append("Client did not specify living arrangement.")
 
@@ -369,6 +226,43 @@ def explain_row_score(row):
 #     else:
 #         explanations["neutral"].append("Client did not specify caregiving needs.")
 
+#     # Kids experience (bonus alignment)
+#     if c_house in ["baby", "many_kids", "baby_and_kids"]:
+#         m_kids_exp = row.get("maidpref_kids_experience", "unspecified")
+#         if (
+#             (c_house == "baby" and m_kids_exp in ["lessthan2", "both"]) or
+#             (c_house == "many_kids" and m_kids_exp in ["above2", "both"]) or
+#             (c_house == "baby_and_kids" and m_kids_exp == "both")
+#         ):
+#             explanations["positive"].append("Client household requires kids experience, maid has relevant experience.")
+#         else:
+#             explanations["negative"].append("Client household requires kids experience, maid lacks the required experience.")
+#     else:
+#         explanations["neutral"].append("Client did not specify kids experience.")
+
+#     # Pets handling (bonus alignment)
+#     if c_pets != "no_pets":
+#         m_pet_handling = row.get("maidpref_pet_handling", "unspecified")
+#         if (
+#             (c_pets == "cat" and m_pet_handling in ["cats", "both"]) or
+#             (c_pets == "dog" and m_pet_handling in ["dogs", "both"]) or
+#             (c_pets == "both" and m_pet_handling == "both")
+#         ):
+#             explanations["positive"].append("Client has pets, maid is comfortable handling them.")
+#         else:
+#             explanations["negative"].append("Client has pets, maid is not comfortable handling them.")
+#     else:
+#         explanations["neutral"].append("Client did not specify pet handling needs.")
+
+#     # Vegetarian / lifestyle (bonus alignment)
+#     if "veg" in str(c_cuisine):
+#         if "veg_friendly" in str(row.get("maidpref_personality", "")):
+#             explanations["positive"].append("Client prefers vegetarian cooking, maid is veg-friendly.")
+#         else:
+#             explanations["negative"].append("Client prefers vegetarian cooking, maid is not veg-friendly.")
+#     else:
+#         explanations["neutral"].append("Client did not specify vegetarian lifestyle.")
+
 #     # Smoking
 #     m_smoke = row.get("maidpref_smoking", "unspecified")
 #     if m_smoke == "non_smoker":
@@ -377,7 +271,113 @@ def explain_row_score(row):
 #         explanations["neutral"].append("Maid profile indicates smoking tolerance or unspecified.")
 
 #     return explanations
-# -------------------------------
+
+-------------------------------
+Expanded Explanation Function
+-------------------------------
+def explain_row_score(row):
+    explanations = {"positive": [], "negative": [], "neutral": []}
+
+    # Household
+    c_house = row.get("clientmts_household_type", "unspecified")
+    m_house = row.get("maidmts_household_type", "unspecified")
+    if c_house != "unspecified":
+        if c_house == "baby" and m_house != "refuses_baby":
+            explanations["positive"].append("Client wants baby care, maid accepts it.")
+        elif c_house == "baby":
+            explanations["negative"].append("Client wants baby care, maid refuses it.")
+        elif c_house == "many_kids" and m_house != "refuses_many_kids":
+            explanations["positive"].append("Client has many kids, maid accepts it.")
+        elif c_house == "many_kids":
+            explanations["negative"].append("Client has many kids, maid refuses it.")
+    else:
+        explanations["neutral"].append("Client did not specify household type.")
+
+    # Pets
+    c_pets = row.get("clientmts_pet_type", "no_pets")
+    m_pets = row.get("maidmts_pet_type", "unspecified")
+    if c_pets != "no_pets":
+        if c_pets == "cat" and m_pets != "refuses_cat":
+            explanations["positive"].append("Client has cats, maid accepts cats.")
+        elif c_pets == "cat":
+            explanations["negative"].append("Client has cats, maid refuses cats.")
+        elif c_pets == "dog" and m_pets != "refuses_dog":
+            explanations["positive"].append("Client has dogs, maid accepts dogs.")
+        elif c_pets == "dog":
+            explanations["negative"].append("Client has dogs, maid refuses dogs.")
+    else:
+        explanations["neutral"].append("Client did not specify pets.")
+
+    # Day-off
+    c_dayoff = row.get("clientmts_dayoff_policy", "unspecified")
+    m_dayoff = row.get("maidmts_dayoff_policy", "unspecified")
+    if c_dayoff != "unspecified":
+        if m_dayoff != "refuses_fixed_sunday":
+            explanations["positive"].append("Client specified day-off, maid accepts flexible policy.")
+        else:
+            explanations["negative"].append("Client specified day-off, maid refuses fixed Sunday.")
+    else:
+        explanations["neutral"].append("Client did not specify day-off policy.")
+
+    # Living arrangement
+    c_living = row.get("clientmts_living_arrangement", "unspecified")
+    m_living = row.get("maidmts_living_arrangement", "unspecified")
+    if c_living != "unspecified":
+        if ("private_room" in str(c_living) and "requires_no_private_room" not in str(m_living)):
+            explanations["positive"].append("Client requires private room, maid accepts it.")
+        else:
+            explanations["negative"].append("Client requires private room, maid refuses it.")
+    else:
+        explanations["neutral"].append("Client did not specify living arrangement.")
+
+    # Nationality
+    c_nat = row.get("clientmts_nationality_preference", "any")
+    m_nat = str(row.get("maid_nationality", "unspecified"))
+    if c_nat != "any":
+        if c_nat in m_nat:
+            explanations["positive"].append(f"Client prefers {c_nat}, maid matches it.")
+        else:
+            explanations["negative"].append(f"Client prefers {c_nat}, maid does not match.")
+    else:
+        explanations["neutral"].append("Client did not specify nationality preference.")
+
+    # Cuisine
+    c_cuisine = row.get("clientmts_cuisine_preference", "unspecified")
+    m_cooking = str(row.get("cooking_group", "not_specified"))
+    if c_cuisine != "unspecified" and m_cooking != "not_specified":
+        c_set = set(str(c_cuisine).split("+"))
+        m_set = set(m_cooking.split("+"))
+        if c_set & m_set:
+            explanations["positive"].append("Client cuisine preference matches maid cooking skills.")
+        else:
+            explanations["negative"].append("Client cuisine preference does not match maid cooking skills.")
+    else:
+        explanations["neutral"].append("Client did not specify cuisine preference.")
+
+    # Special cases
+    c_special = row.get("clientmts_special_cases", "unspecified")
+    m_care = row.get("maidpref_caregiving_profile", "unspecified")
+    if c_special != "unspecified":
+        if (
+            (c_special == "elderly" and m_care in ["elderly_experienced", "elderly_and_special"]) or
+            (c_special == "special_needs" and m_care in ["special_needs", "elderly_and_special"]) or
+            (c_special == "elderly_and_special" and m_care == "elderly_and_special")
+        ):
+            explanations["positive"].append("Client requires caregiving, maid has relevant experience.")
+        else:
+            explanations["negative"].append("Client requires caregiving, maid lacks the required experience.")
+    else:
+        explanations["neutral"].append("Client did not specify caregiving needs.")
+
+    # Smoking
+    m_smoke = row.get("maidpref_smoking", "unspecified")
+    if m_smoke == "non_smoker":
+        explanations["positive"].append("Maid is a non-smoker.")
+    else:
+        explanations["neutral"].append("Maid profile indicates smoking tolerance or unspecified.")
+
+    return explanations
+-------------------------------
 # Streamlit UI
 # -------------------------------
 st.title("Maids.cc Matching Score App")
